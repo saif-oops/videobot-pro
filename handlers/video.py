@@ -340,8 +340,9 @@ async def _handle_download(query, ctx, url: str, info: dict,
                     caption=caption,
                     parse_mode="HTML",
                     supports_streaming=True,
-                    read_timeout=60,
-                    write_timeout=60,
+                    read_timeout=180,
+                    write_timeout=180,
+                    connect_timeout=60,
                 )
                 logger.info(f"Direct cloud fetch succeeded for {url}! 🚀")
 
@@ -434,8 +435,9 @@ async def _handle_download(query, ctx, url: str, info: dict,
                     filename=os.path.basename(filepath),
                     caption=caption,
                     parse_mode="HTML",
-                    read_timeout=120,
+                    read_timeout=300,
                     write_timeout=300,
+                    connect_timeout=60,
                 )
         else:
             # Action is 'play' -> Send as playable streaming video
@@ -446,8 +448,9 @@ async def _handle_download(query, ctx, url: str, info: dict,
                     caption=caption,
                     parse_mode="HTML",
                     supports_streaming=True,
-                    read_timeout=120,
+                    read_timeout=300,
                     write_timeout=300,
+                    connect_timeout=60,
                 )
 
         await progress_msg.delete()
@@ -502,10 +505,19 @@ async def _handle_download(query, ctx, url: str, info: dict,
 
     except Exception as e:
         logger.exception(f"Operation failed for {url}: {e}")
-        await progress_msg.edit_text(
-            f"❌ <b>Operation failed.</b>\n\nError: <code>{html.escape(str(e))}</code>",
-            parse_mode="HTML"
-        )
+        err_msg = str(e)
+        if any(k in err_msg.lower() for k in ("timeout", "timed out", "readtimeout")):
+            user_err = (
+                "⏱ <b>Upload Timed Out</b>\n\n"
+                "The video upload took too long due to network speed.\n"
+                "Please try again or select a lower resolution."
+            )
+        else:
+            user_err = f"❌ <b>Operation failed.</b>\n\nError: <code>{html.escape(err_msg[:200])}</code>"
+        try:
+            await progress_msg.edit_text(user_err, parse_mode="HTML")
+        except Exception:
+            pass
     finally:
         # Clean up local file
         if filepath and os.path.exists(filepath):

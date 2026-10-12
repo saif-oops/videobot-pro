@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 import os
 import re
 import subprocess
@@ -15,7 +16,32 @@ import yt_dlp
 
 from config import DOWNLOAD_DIR, TERABOX_DOMAINS, DISKWALA_DOMAINS
 
+logger = logging.getLogger(__name__)
+
 os.makedirs(DOWNLOAD_DIR, exist_ok=True)
+
+
+def cleanup_orphaned_downloads(download_dir: str = DOWNLOAD_DIR, max_age_seconds: int = 1800) -> int:
+    """Clean up leftover temporary download files from previous crashes or sessions."""
+    if not os.path.isdir(download_dir):
+        return 0
+    removed_count = 0
+    now = time.time()
+    for fname in os.listdir(download_dir):
+        fpath = os.path.join(download_dir, fname)
+        if not os.path.isfile(fpath):
+            continue
+        try:
+            mtime = os.path.getmtime(fpath)
+            is_temp_ext = fname.endswith((".part", ".ytdl", ".temp", ".tmp", ".mp4", ".mkv", ".webm"))
+            is_expired = (now - mtime > max_age_seconds) if max_age_seconds > 0 else True
+            if is_temp_ext and is_expired:
+                os.remove(fpath)
+                removed_count += 1
+                logger.info(f"Cleaned up orphaned download file: {fname}")
+        except Exception as e:
+            logger.warning(f"Failed to remove orphaned file {fname}: {e}")
+    return removed_count
 
 # ─── URL Helpers ─────────────────────────────────────────────
 

@@ -73,8 +73,8 @@ def build_ptb_app() -> Application:
     from telegram.request import HTTPXRequest
     request = HTTPXRequest(
         connection_pool_size=16,
-        connect_timeout=30.0,
-        read_timeout=120.0,
+        connect_timeout=60.0,
+        read_timeout=300.0,
         write_timeout=300.0,
     )
     app = Application.builder().token(BOT_TOKEN).request(request).build()
@@ -489,11 +489,21 @@ def create_starlette_app(webhook_mode: bool) -> Starlette:
 # ─── Auto-Delete Background Worker ────────────────────────────
 
 async def _auto_delete_worker(app: Application):
-    """Background worker that continuously deletes expired scheduled messages."""
+    """Background worker that continuously deletes expired scheduled messages and prunes stale temp files."""
     from database.models import get_due_deletions, remove_scheduled_deletion
+    from utils.downloader import cleanup_orphaned_downloads
+    import time
     logger.info("Auto-delete worker started ⏳")
+    last_cleanup = time.monotonic()
     while True:
         try:
+            now = time.monotonic()
+            if now - last_cleanup > 1800:
+                last_cleanup = now
+                cleaned = cleanup_orphaned_downloads(max_age_seconds=1800)
+                if cleaned > 0:
+                    logger.info(f"Periodic cleanup removed {cleaned} stale download file(s) 🧹")
+
             due_items = await get_due_deletions()
             for item in due_items:
                 rec_id = item["id"]
@@ -520,6 +530,12 @@ async def main():
     # Initialize database
     await init_db()
     logger.info("Database initialized ✅")
+
+    # Clean up orphaned temporary files from prior crashes/sessions
+    from utils.downloader import cleanup_orphaned_downloads
+    cleaned = cleanup_orphaned_downloads(max_age_seconds=0)
+    if cleaned > 0:
+        logger.info(f"Cleaned up {cleaned} orphaned download file(s) on startup 🧹")
 
     _ptb_app = build_ptb_app()
     for attempt in range(1, 6):
