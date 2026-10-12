@@ -8,20 +8,25 @@ import logging
 import os
 import re
 import socket
+import sys
 import threading
 from urllib.parse import urlparse
 
 # ─── Python 3.14 Compatibility Patch ─────────────────────────
 # Bypasses anyio Happy Eyeballs task group deadlock on Python 3.14 alpha
-import anyio
-import anyio._core._sockets
+if sys.version_info >= (3, 14):
+    try:
+        import anyio
+        import anyio._core._sockets
 
-async def _patched_connect_tcp(remote_host, remote_port, **kwargs):
-    backend = anyio._core._eventloop.get_async_backend()
-    return await backend.connect_tcp(str(remote_host), remote_port)
+        async def _patched_connect_tcp(remote_host, remote_port, **kwargs):
+            backend = anyio._core._eventloop.get_async_backend()
+            return await backend.connect_tcp(str(remote_host), remote_port)
 
-anyio.connect_tcp = _patched_connect_tcp
-anyio._core._sockets.connect_tcp = _patched_connect_tcp
+        anyio.connect_tcp = _patched_connect_tcp
+        anyio._core._sockets.connect_tcp = _patched_connect_tcp
+    except Exception:
+        pass
 # ─────────────────────────────────────────────────────────────
 
 import httpx
