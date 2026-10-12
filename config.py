@@ -42,3 +42,10 @@ DISKWALA_DOMAINS = [
 ]
 
 BOT_NAME = "VideoBot Pro"
+
+# ─── Allowed Streaming & Proxy Domains (SSRF Protection) ─────
+ALLOWED_STREAM_DOMAINS = set(TERABOX_DOMAINS) | {
+    "teraboxdl.site",
+    "playterabox.com",
+    "baidupcs.com",
+}

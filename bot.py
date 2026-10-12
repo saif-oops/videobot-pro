@@ -2,11 +2,14 @@
 from __future__ import annotations
 
 import asyncio
+import ipaddress
 import json
 import logging
 import os
 import re
+import socket
 import threading
+from urllib.parse import urlparse
 
 # ─── Python 3.14 Compatibility Patch ─────────────────────────
 # Bypasses anyio Happy Eyeballs task group deadlock on Python 3.14 alpha
@@ -38,7 +41,7 @@ from telegram.ext import (
     CallbackQueryHandler, filters,
 )
 
-from config import BOT_TOKEN, PORT, WEBHOOK_URL
+from config import BOT_TOKEN, PORT, WEBHOOK_URL, ALLOWED_STREAM_DOMAINS
 from database.db import init_db
 from handlers.start import start_handler, help_handler, status_handler
 from handlers.video import link_handler, callback_handler
@@ -203,6 +206,14 @@ async def api_fetch(request: Request):
     if not url:
         return JSONResponse({"error": "Missing 'url' field"}, status_code=400)
 
+    from utils.downloader import detect_platform
+    if not detect_platform(url):
+        return JSONResponse(
+            {"error": "Only TeraBox and DiskWala links are supported"},
+            status_code=400,
+            headers=_cors_headers(),
+        )
+
     try:
         from utils.downloader import get_video_info
         info = await get_video_info(url)
@@ -212,6 +223,75 @@ async def api_fetch(request: Request):
     except Exception as e:
         logger.exception("api_fetch error")
         return JSONResponse({"error": f"Failed to fetch: {e}"}, status_code=500, headers=_cors_headers())
+
+
+# ─── SSRF Protection Validator ───────────────────────────────
+
+def is_safe_proxy_url(url: str) -> tuple[bool, str]:
+    """Validate target URL to strictly prevent SSRF, DNS rebinding, and LAN probing."""
+    if not url or not isinstance(url, str):
+        return False, "Missing URL"
+    if len(url) > 4096:
+        return False, "URL length exceeds limit"
+
+    try:
+        parsed = urlparse(url)
+    except Exception:
+        return False, "Malformed URL"
+
+    if parsed.scheme != "https":
+        return False, "Only HTTPS streams are permitted"
+
+    hostname = (parsed.hostname or "").lower().strip()
+    if not hostname:
+        return False, "Missing hostname"
+
+    # Block credentials in URL (e.g., https://user:pass@domain)
+    if parsed.username or parsed.password:
+        return False, "Userinfo in URL is not allowed"
+
+    # Enforce standard HTTPS port (443 or omitted)
+    if parsed.port and parsed.port != 443:
+        return False, f"Disallowed port: {parsed.port}"
+
+    # Match hostname against allowed domain suffixes
+    domain_allowed = any(
+        hostname == d or hostname.endswith("." + d)
+        for d in ALLOWED_STREAM_DOMAINS
+    )
+    if not domain_allowed:
+        return False, f"Domain '{hostname}' is not allowed"
+
+    # Resolve IP and verify it is not private, loopback, link-local, or reserved
+    try:
+        addr_info = socket.getaddrinfo(hostname, 443, proto=socket.IPPROTO_TCP)
+        if not addr_info:
+            return False, "DNS resolution returned no addresses"
+        for entry in addr_info:
+            ip_str = entry[4][0]
+            ip_obj = ipaddress.ip_address(ip_str)
+            if (
+                ip_obj.is_private
+                or ip_obj.is_loopback
+                or ip_obj.is_link_local
+                or ip_obj.is_multicast
+                or ip_obj.is_unspecified
+            ):
+                return False, f"Resolved IP '{ip_str}' is forbidden"
+    except Exception as e:
+        return False, f"DNS resolution failed: {e}"
+
+    return True, ""
+
+
+async def _check_redirect(response: httpx.Response):
+    """Event hook to validate HTTP redirect hops against SSRF rules."""
+    if response.is_redirect and "location" in response.headers:
+        loc = response.headers["location"]
+        redir_target = str(response.url.join(loc))
+        safe, reason = is_safe_proxy_url(redir_target)
+        if not safe:
+            raise httpx.RequestError(f"Disallowed redirect target: {reason}")
 
 
 # ─── API: Stream Proxy ───────────────────────────────────────
@@ -227,9 +307,14 @@ _PROXY_HEADERS = {
 
 async def api_stream(request: Request):
     """GET /api/stream?url=... — CORS-safe stream proxy for video playback."""
-    target_url = request.query_params.get("url", "")
+    target_url = request.query_params.get("url", "").strip()
     if not target_url:
         return PlainTextResponse("Missing 'url' param", status_code=400)
+
+    safe, reason = is_safe_proxy_url(target_url)
+    if not safe:
+        logger.warning(f"SSRF attempt blocked in api_stream: {reason} for URL: {target_url[:120]}")
+        return PlainTextResponse(f"Forbidden: {reason}", status_code=403)
 
     # Determine content type from URL
     is_hls = "m3u8" in target_url.lower()
@@ -245,8 +330,13 @@ async def api_stream(request: Request):
     if range_header:
         proxy_headers["Range"] = range_header
 
+    client = None
     try:
-        client = httpx.AsyncClient(follow_redirects=True, timeout=60.0)
+        client = httpx.AsyncClient(
+            follow_redirects=True,
+            timeout=60.0,
+            event_hooks={"response": [_check_redirect]},
+        )
         resp = await client.send(
             client.build_request("GET", target_url, headers=proxy_headers),
             stream=True,
@@ -290,6 +380,8 @@ async def api_stream(request: Request):
             headers=resp_headers,
         )
     except Exception as e:
+        if client:
+            await client.aclose()
         logger.exception("api_stream error")
         return PlainTextResponse(f"Stream error: {e}", status_code=502)
 
@@ -298,10 +390,15 @@ async def api_stream(request: Request):
 
 async def api_download(request: Request):
     """GET /api/download?url=...&title=... — Stream as downloadable attachment."""
-    target_url = request.query_params.get("url", "")
+    target_url = request.query_params.get("url", "").strip()
     title = request.query_params.get("title", "video")
     if not target_url:
         return PlainTextResponse("Missing 'url' param", status_code=400)
+
+    safe, reason = is_safe_proxy_url(target_url)
+    if not safe:
+        logger.warning(f"SSRF attempt blocked in api_download: {reason} for URL: {target_url[:120]}")
+        return PlainTextResponse(f"Forbidden: {reason}", status_code=403)
 
     # Sanitize filename
     safe_title = re.sub(r'[^\w\s\-.]', '', title)[:60] or "video"
@@ -312,8 +409,13 @@ async def api_download(request: Request):
     elif "1024tera" in target_url or "terabox" in target_url:
         proxy_headers["Referer"] = "https://www.1024tera.com/"
 
+    client = None
     try:
-        client = httpx.AsyncClient(follow_redirects=True, timeout=120.0)
+        client = httpx.AsyncClient(
+            follow_redirects=True,
+            timeout=120.0,
+            event_hooks={"response": [_check_redirect]},
+        )
         resp = await client.send(
             client.build_request("GET", target_url, headers=proxy_headers),
             stream=True,
@@ -338,8 +440,11 @@ async def api_download(request: Request):
 
         return StreamingResponse(stream_body(), headers=resp_headers)
     except Exception as e:
+        if client:
+            await client.aclose()
         logger.exception("api_download error")
         return PlainTextResponse(f"Download error: {e}", status_code=502)
+
 
 
 # ─── CORS preflight handler ──────────────────────────────────
