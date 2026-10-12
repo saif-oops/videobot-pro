@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import html
+from urllib.parse import quote
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, WebAppInfo
 from config import TERABOX_WEBAPP_URL
 
@@ -9,17 +10,31 @@ from config import TERABOX_WEBAPP_URL
 # ─── Video Info Keyboard ──────────────────────────────────────
 
 def video_action_keyboard(formats: list[dict], url_hash: str, web_url: str = "", original_url: str = "") -> InlineKeyboardMarkup:
-    """Only one option below: Play with icon."""
-    return InlineKeyboardMarkup([
-        [InlineKeyboardButton("✨ ▶️ Play ✨", callback_data=f"play:{url_hash}:0")]
-    ])
+    """Action keyboard: Play in Telegram and Watch Online (Mini App)."""
+    rows = [
+        [InlineKeyboardButton("✨ ▶️ Play in Telegram ✨", callback_data=f"play:{url_hash}:0")]
+    ]
+    target_url = original_url or web_url
+    if TERABOX_WEBAPP_URL.startswith("https://") and target_url:
+        player_link = f"{TERABOX_WEBAPP_URL}?url={quote(target_url, safe='')}"
+        rows.append([
+            InlineKeyboardButton("🌐 Watch Online", web_app=WebAppInfo(url=player_link))
+        ])
+    return InlineKeyboardMarkup(rows)
 
 
 def selected_quality_keyboard(url_hash: str, fmt_idx: int,
                                 label: str, web_url: str = "", original_url: str = "") -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup([
-        [InlineKeyboardButton("✨ ▶️ Play ✨", callback_data=f"play:{url_hash}:{fmt_idx}")]
-    ])
+    rows = [
+        [InlineKeyboardButton("✨ ▶️ Play in Telegram ✨", callback_data=f"play:{url_hash}:{fmt_idx}")]
+    ]
+    target_url = original_url or web_url
+    if TERABOX_WEBAPP_URL.startswith("https://") and target_url:
+        player_link = f"{TERABOX_WEBAPP_URL}?url={quote(target_url, safe='')}"
+        rows.append([
+            InlineKeyboardButton("🌐 Watch Online", web_app=WebAppInfo(url=player_link))
+        ])
+    return InlineKeyboardMarkup(rows)
 
 
 def buy_premium_keyboard(payment_url: str) -> InlineKeyboardMarkup:

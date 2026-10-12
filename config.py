@@ -21,10 +21,26 @@ PREMIUM_PRICE_INR = 99
 DOWNLOAD_DIR = "downloads"
 MAX_FILE_SIZE_MB = 50                            # Telegram Bot API limit
 AUTO_DELETE_MINUTES = int(os.getenv("AUTO_DELETE_MINUTES", "30"))  # Auto-disappear after 30 min
-TERABOX_WEBAPP_URL = os.getenv(
-    "TERABOX_WEBAPP_URL",
-    f"{WEBHOOK_URL.rstrip('/')}/player" if WEBHOOK_URL else f"http://localhost:{PORT}/player"
-)
+
+# ─── Web App & Player Settings ───────────────────────────────
+_raw_webapp = (os.getenv("WEB_APP_URL", "") or os.getenv("TERABOX_WEBAPP_URL", "")).strip()
+if not _raw_webapp and WEBHOOK_URL:
+    _raw_webapp = f"{WEBHOOK_URL.rstrip('/')}/player"
+
+if _raw_webapp:
+    if not _raw_webapp.endswith("/player") and not _raw_webapp.endswith(".html"):
+        TERABOX_WEBAPP_URL = f"{_raw_webapp.rstrip('/')}/player"
+    else:
+        TERABOX_WEBAPP_URL = _raw_webapp
+else:
+    TERABOX_WEBAPP_URL = f"http://localhost:{PORT}/player"
+
+# ─── Force-Subscribe (FSUB) ──────────────────────────────────
+FSUB_CHANNEL = os.getenv("FSUB_CHANNEL", "").strip()          # e.g. @MyChannel or channel ID
+FSUB_CHANNEL_URL = os.getenv("FSUB_CHANNEL_URL", "").strip()  # e.g. https://t.me/MyChannel
+
+# ─── Automated Database Backup ───────────────────────────────
+BACKUP_INTERVAL_HOURS = int(os.getenv("BACKUP_INTERVAL_HOURS", "24"))
 
 # ─── Supported Domains ───────────────────────────────────────
 TERABOX_DOMAINS = [

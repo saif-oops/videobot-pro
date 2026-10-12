@@ -2,8 +2,11 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
+
+logger = logging.getLogger(__name__)
 
 from config import ADMIN_IDS
 from database.models import (
@@ -49,6 +52,8 @@ async def admin_panel(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         "/unban @username — Unban user\n"
         "/lookup @username — View user info\n"
         "/broadcast message — Send to all users\n"
+        "/backup — Export database snapshot\n"
+        "/restore — Reply to .db file to restore\n"
         "/stats — Show this panel\n"
     )
     await update.message.reply_text(text, parse_mode="Markdown")
@@ -229,38 +234,162 @@ async def lookup_command(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
 
 @admin_only
 async def broadcast_command(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
-    if not ctx.args:
+    reply_msg = update.message.reply_to_message
+    text_msg = " ".join(ctx.args).strip() if ctx.args else ""
+
+    if not reply_msg and not text_msg:
         await update.message.reply_text(
-            "Usage: /broadcast Your message here\n"
-            "Supports Markdown formatting."
+            "📢 <b>How to Broadcast:</b>\n\n"
+            "1. <b>Text:</b> <code>/broadcast Your message here</code>\n"
+            "2. <b>Media:</b> Reply to any photo, video, or post with <code>/broadcast</code>",
+            parse_mode="HTML"
         )
         return
 
-    message = " ".join(ctx.args)
     user_ids = await get_all_user_ids()
+    if not user_ids:
+        await update.message.reply_text("ℹ️ No registered users found.")
+        return
 
     status_msg = await update.message.reply_text(
-        f"📢 Broadcasting to {len(user_ids)} users…"
+        f"📢 Broadcasting to <b>{len(user_ids)}</b> users…",
+        parse_mode="HTML"
     )
 
     sent, failed = 0, 0
     for uid in user_ids:
         try:
-            await ctx.bot.send_message(
-                chat_id=uid,
-                text=f"📢 *Announcement*\n\n{message}",
-                parse_mode="Markdown"
-            )
+            if reply_msg:
+                await ctx.bot.copy_message(
+                    chat_id=uid,
+                    from_chat_id=update.message.chat_id,
+                    message_id=reply_msg.message_id,
+                )
+            else:
+                await ctx.bot.send_message(
+                    chat_id=uid,
+                    text=f"📢 <b>Announcement</b>\n\n{text_msg}",
+                    parse_mode="HTML"
+                )
             sent += 1
         except Exception:
             failed += 1
-        await asyncio.sleep(0.05)  # Avoid Telegram rate limits
+        await asyncio.sleep(0.05)  # Telegram rate-limiting
 
     await status_msg.edit_text(
-        f"✅ Broadcast complete!\n\n"
-        f"📤 Sent: {sent}\n"
-        f"❌ Failed: {failed}"
+        f"✅ <b>Broadcast complete!</b>\n\n"
+        f"📤 Sent: <b>{sent}</b>\n"
+        f"❌ Failed: <b>{failed}</b>",
+        parse_mode="HTML"
     )
+
+
+# ─── /backup ──────────────────────────────────────────────────
+
+@admin_only
+async def backup_command(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    from database.db import DB_PATH, checkpoint_db
+    import os
+    from datetime import datetime
+
+    status_msg = await update.message.reply_text("⏳ Creating database backup…")
+    try:
+        await checkpoint_db()
+        if not os.path.exists(DB_PATH):
+            await status_msg.edit_text("❌ Database file not found on disk.")
+            return
+
+        size_kb = os.path.getsize(DB_PATH) / 1024
+        stats = await get_stats()
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+        caption = (
+            "📦 <b>VideoBot Pro Database Backup</b>\n\n"
+            f"📅 <b>Created:</b> <code>{timestamp}</code>\n"
+            f"👥 <b>Total Users:</b> <code>{stats['total_users']}</code>\n"
+            f"🌟 <b>Premium:</b> <code>{stats['premium_users']}</code>\n"
+            f"📥 <b>Total Downloads:</b> <code>{stats['total_downloads']}</code>\n"
+            f"💾 <b>Size:</b> <code>{size_kb:.1f} KB</code>\n\n"
+            "<i>💡 To restore this backup, reply to this document with <code>/restore</code>.</i>"
+        )
+
+        with open(DB_PATH, "rb") as db_file:
+            await ctx.bot.send_document(
+                chat_id=update.effective_chat.id,
+                document=db_file,
+                filename=f"videobot_backup_{datetime.now().strftime('%Y%m%d_%H%M%S')}.db",
+                caption=caption,
+                parse_mode="HTML"
+            )
+        await status_msg.delete()
+    except Exception as e:
+        logger.exception("Backup error")
+        await status_msg.edit_text(f"❌ Backup failed: {e}")
+
+
+# ─── /restore ─────────────────────────────────────────────────
+
+@admin_only
+async def restore_command(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    from database.db import DB_PATH, init_db
+    import os
+    import shutil
+
+    reply = update.message.reply_to_message
+    if not reply or not reply.document:
+        await update.message.reply_text(
+            "⚠️ <b>How to Restore:</b>\n\n"
+            "1. Upload or forward your backup <code>.db</code> file here.\n"
+            "2. Reply to that file with <code>/restore</code>.",
+            parse_mode="HTML"
+        )
+        return
+
+    doc = reply.document
+    if not (doc.file_name or "").endswith(".db"):
+        await update.message.reply_text("❌ The attached file must be an SQLite database ending in <code>.db</code>.", parse_mode="HTML")
+        return
+
+    status_msg = await update.message.reply_text("⏳ Downloading and verifying backup file…")
+    temp_path = f"{DB_PATH}.restore_temp"
+    backup_old = f"{DB_PATH}.bak"
+    try:
+        tg_file = await ctx.bot.get_file(doc.file_id)
+        await tg_file.download_to_drive(custom_path=temp_path)
+
+        # Validate SQLite header magic bytes
+        with open(temp_path, "rb") as f:
+            header = f.read(16)
+        if not header.startswith(b"SQLite format 3\x00"):
+            if os.path.exists(temp_path):
+                os.remove(temp_path)
+            await status_msg.edit_text("❌ Invalid database file! Header does not match SQLite format 3.")
+            return
+
+        # Backup current db before overwrite
+        if os.path.exists(DB_PATH):
+            shutil.copy2(DB_PATH, backup_old)
+
+        # Replace active db
+        shutil.move(temp_path, DB_PATH)
+
+        # Re-initialize schema and indexes
+        await init_db()
+        stats = await get_stats()
+
+        await status_msg.edit_text(
+            "✅ <b>Database Restored Successfully!</b>\n\n"
+            f"👥 Restored Users: <b>{stats['total_users']}</b>\n"
+            f"🌟 Restored Premium: <b>{stats['premium_users']}</b>\n"
+            f"📥 Total Downloads: <b>{stats['total_downloads']}</b>\n\n"
+            "All user records and quotas are now active! 🚀",
+            parse_mode="HTML"
+        )
+    except Exception as e:
+        logger.exception("Restore error")
+        if os.path.exists(backup_old) and not os.path.exists(DB_PATH):
+            shutil.copy2(backup_old, DB_PATH)
+        await status_msg.edit_text(f"❌ Restore failed: {e}")
 
 
 # ─── Helper ───────────────────────────────────────────────────

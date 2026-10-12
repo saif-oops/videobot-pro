@@ -56,7 +56,7 @@ from handlers.payment import (
 from handlers.admin import (
     admin_panel, stats_command, grant_command, revoke_command,
     addquota_command, ban_command, unban_command,
-    lookup_command, broadcast_command,
+    lookup_command, broadcast_command, backup_command, restore_command,
 )
 
 logging.basicConfig(
@@ -100,6 +100,8 @@ def build_ptb_app() -> Application:
     app.add_handler(CommandHandler("unban",     unban_command))
     app.add_handler(CommandHandler("lookup",    lookup_command))
     app.add_handler(CommandHandler("broadcast", broadcast_command))
+    app.add_handler(CommandHandler("backup",    backup_command))
+    app.add_handler(CommandHandler("restore",   restore_command))
 
     # ── Callbacks ──
     app.add_handler(CallbackQueryHandler(callback_handler))
@@ -527,6 +529,54 @@ async def _auto_delete_worker(app: Application):
         await asyncio.sleep(10)
 
 
+async def _auto_backup_worker(app: Application):
+    """Periodically send database backup snapshots to the primary admin."""
+    from config import ADMIN_IDS, BACKUP_INTERVAL_HOURS
+    from database.db import DB_PATH, checkpoint_db
+    from database.models import get_stats
+    from datetime import datetime
+
+    if not ADMIN_IDS or BACKUP_INTERVAL_HOURS <= 0:
+        return
+
+    admin_chat_id = ADMIN_IDS[0]
+    interval_seconds = BACKUP_INTERVAL_HOURS * 3600
+    logger.info(f"Auto-backup worker started (every {BACKUP_INTERVAL_HOURS}h to admin {admin_chat_id}) 📦")
+
+    while True:
+        try:
+            await asyncio.sleep(interval_seconds)
+            await checkpoint_db()
+            if os.path.exists(DB_PATH):
+                stats = await get_stats()
+                size_kb = os.path.getsize(DB_PATH) / 1024
+                timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+                caption = (
+                    "📦 <b>Scheduled Database Backup</b>\n\n"
+                    f"📅 <b>Timestamp:</b> <code>{timestamp}</code>\n"
+                    f"👥 <b>Total Users:</b> <code>{stats['total_users']}</code>\n"
+                    f"🌟 <b>Premium:</b> <code>{stats['premium_users']}</code>\n"
+                    f"📥 <b>Total Downloads:</b> <code>{stats['total_downloads']}</code>\n"
+                    f"💾 <b>Size:</b> <code>{size_kb:.1f} KB</code>\n\n"
+                    "<i>💡 To restore this backup if the server restarts, reply with <code>/restore</code>.</i>"
+                )
+
+                with open(DB_PATH, "rb") as db_file:
+                    await app.bot.send_document(
+                        chat_id=admin_chat_id,
+                        document=db_file,
+                        filename=f"videobot_backup_{datetime.now().strftime('%Y%m%d_%H%M%S')}.db",
+                        caption=caption,
+                        parse_mode="HTML"
+                    )
+                logger.info("Periodic database backup sent to admin ✅")
+        except asyncio.CancelledError:
+            break
+        except Exception as e:
+            logger.error(f"Auto-backup worker error: {e}")
+
+
 # ─── Main ─────────────────────────────────────────────────────
 
 async def main():
@@ -557,8 +607,9 @@ async def main():
             logger.warning(f"PTB start attempt {attempt} failed: {e}. Retrying in 3s...")
             await asyncio.sleep(3)
 
-    # Start auto-delete background worker
+    # Start auto-delete and auto-backup background workers
     auto_delete_task = asyncio.create_task(_auto_delete_worker(_ptb_app))
+    auto_backup_task = asyncio.create_task(_auto_backup_worker(_ptb_app))
 
     # Set up Mini App menu button pointing to our custom player
     from telegram import MenuButtonWebApp, WebAppInfo
@@ -604,6 +655,7 @@ async def main():
         await server.serve()
     finally:
         auto_delete_task.cancel()
+        auto_backup_task.cancel()
         if not webhook_mode:
             await _ptb_app.updater.stop()
         await _ptb_app.stop()

@@ -49,6 +49,15 @@ async def start_handler(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     await get_or_create_user(user.id, user.username or "", user.full_name)
 
+    from utils.fsub import is_subscribed, get_fsub_keyboard, get_fsub_message
+    if not await is_subscribed(ctx.bot, user.id):
+        await update.message.reply_text(
+            get_fsub_message(),
+            parse_mode="HTML",
+            reply_markup=get_fsub_keyboard(),
+        )
+        return
+
     text = START_TEXT.format(
         name=BOT_NAME,
         quota=FREE_QUOTA,

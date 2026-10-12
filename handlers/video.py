@@ -63,6 +63,15 @@ async def link_handler(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         tg_user.id, tg_user.username or "", tg_user.full_name
     )
 
+    from utils.fsub import is_subscribed, get_fsub_keyboard, get_fsub_message
+    if not await is_subscribed(ctx.bot, tg_user.id):
+        await msg.reply_text(
+            get_fsub_message(),
+            parse_mode="HTML",
+            reply_markup=get_fsub_keyboard(),
+        )
+        return
+
     # Check quota
     allowed, reason = await can_use(tg_user.id)
     if not allowed:
@@ -161,6 +170,24 @@ async def callback_handler(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
 
     if data == "cancel":
         await query.message.delete()
+        return
+
+    if data == "check_fsub":
+        from utils.fsub import is_subscribed
+        joined = await is_subscribed(ctx.bot, query.from_user.id)
+        if joined:
+            await query.answer("✅ Verified! Welcome aboard.", show_alert=True)
+            try:
+                await query.message.delete()
+            except Exception:
+                pass
+            await ctx.bot.send_message(
+                chat_id=query.message.chat_id,
+                text="🎉 <b>Membership verified!</b>\nSend any TeraBox or DiskWala link to start streaming or downloading.",
+                parse_mode="HTML"
+            )
+        else:
+            await query.answer("❌ You haven't joined the channel yet! Please join to continue.", show_alert=True)
         return
 
     if data == "goto_premium":

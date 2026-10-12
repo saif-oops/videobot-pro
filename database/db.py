@@ -93,6 +93,10 @@ async def init_db():
         await db.execute("CREATE INDEX IF NOT EXISTS idx_downloads_user_id ON downloads(user_id)")
         await db.execute("CREATE INDEX IF NOT EXISTS idx_scheduled_deletions_delete_at ON scheduled_deletions(delete_at)")
         await db.execute("CREATE INDEX IF NOT EXISTS idx_payments_user_id ON payments(user_id)")
-        await db.execute("CREATE INDEX IF NOT EXISTS idx_payments_order_id ON payments(order_id)")
-
         await db.commit()
+
+
+async def checkpoint_db():
+    """Flush WAL journal to ensure videobot.db is 100% synchronized for backup."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute("PRAGMA wal_checkpoint(TRUNCATE)")
