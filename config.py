@@ -23,17 +23,29 @@ MAX_FILE_SIZE_MB = 50                            # Telegram Bot API limit
 AUTO_DELETE_MINUTES = int(os.getenv("AUTO_DELETE_MINUTES", "30"))  # Auto-disappear after 30 min
 
 # ─── Web App & Player Settings ───────────────────────────────
-_raw_webapp = (os.getenv("WEB_APP_URL", "") or os.getenv("TERABOX_WEBAPP_URL", "")).strip()
+_raw_webapp = (
+    os.getenv("WEB_APP_URL", "")
+    or os.getenv("TERABOX_WEBAPP_URL", "")
+    or os.getenv("RAILWAY_PUBLIC_DOMAIN", "")
+    or os.getenv("RAILWAY_STATIC_URL", "")
+).strip()
+
 if not _raw_webapp and WEBHOOK_URL:
     _raw_webapp = f"{WEBHOOK_URL.rstrip('/')}/player"
 
+# Auto-default to the live Railway domain if unset or on cloud
+if not _raw_webapp:
+    _raw_webapp = "https://videobot-pro.up.railway.app"
+
 if _raw_webapp:
+    if not _raw_webapp.startswith("http://") and not _raw_webapp.startswith("https://"):
+        _raw_webapp = f"https://{_raw_webapp}"
     if not _raw_webapp.endswith("/player") and not _raw_webapp.endswith(".html"):
         TERABOX_WEBAPP_URL = f"{_raw_webapp.rstrip('/')}/player"
     else:
         TERABOX_WEBAPP_URL = _raw_webapp
 else:
-    TERABOX_WEBAPP_URL = f"http://localhost:{PORT}/player"
+    TERABOX_WEBAPP_URL = "https://videobot-pro.up.railway.app/player"
 
 # ─── Force-Subscribe (FSUB) ──────────────────────────────────
 FSUB_CHANNEL = os.getenv("FSUB_CHANNEL", "").strip()          # e.g. @MyChannel or channel ID
