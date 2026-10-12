@@ -3,6 +3,11 @@ import os
 
 DB_PATH = os.getenv("DB_PATH", "videobot.db")
 
+# Ensure parent directory exists for DB_PATH (e.g. mounted persistent volume /data)
+_db_dir = os.path.dirname(DB_PATH)
+if _db_dir:
+    os.makedirs(_db_dir, exist_ok=True)
+
 
 async def get_db() -> aiosqlite.Connection:
     db = await aiosqlite.connect(DB_PATH)
