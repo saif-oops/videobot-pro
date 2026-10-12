@@ -11,6 +11,15 @@ from telegram.constants import ChatAction
 
 logger = logging.getLogger(__name__)
 
+# Concurrency limits: max 3 simultaneous downloads system-wide, max 1 per user
+_system_download_semaphore = asyncio.Semaphore(3)
+_user_locks: dict[int, asyncio.Lock] = {}
+
+def _get_user_lock(user_id: int) -> asyncio.Lock:
+    if user_id not in _user_locks:
+        _user_locks[user_id] = asyncio.Lock()
+    return _user_locks[user_id]
+
 from database.models import (
     get_or_create_user, get_user, can_use,
     decrement_free_uses, increment_total_uses, log_download,
@@ -296,17 +305,31 @@ async def _handle_download(query, ctx, url: str, info: dict,
             except Exception as cache_err:
                 logger.warning(f"Cache send failed ({cache_err}), falling back to direct stream...")
 
-    # Send progress message
-    action_label = "download" if action == "download" else "stream"
-    progress_msg = await ctx.bot.send_message(
-        chat_id=chat_id,
-        text=f"⬇️ <b>Starting {action_label}…</b>\n\n📹 <i>{esc_title}</i>",
-        parse_mode="HTML"
-    )
-    progress = ProgressBar(progress_msg, title)
+    # ── Concurrency check: 1 per user, max 3 system-wide ──
+    user_lock = _get_user_lock(tg_user.id)
+    if user_lock.locked():
+        await ctx.bot.send_message(
+            chat_id=chat_id,
+            text="⏳ <b>A video is already processing for you.</b>\nPlease wait for it to finish.",
+            parse_mode="HTML"
+        )
+        return
+
+    await user_lock.acquire()
+    await _system_download_semaphore.acquire()
+    acquired_locks = True
 
     filepath = None
+    progress_msg = None
     try:
+        # Send progress message
+        action_label = "download" if action == "download" else "stream"
+        progress_msg = await ctx.bot.send_message(
+            chat_id=chat_id,
+            text=f"⬇️ <b>Starting {action_label}…</b>\n\n📹 <i>{esc_title}</i>",
+            parse_mode="HTML"
+        )
+        progress = ProgressBar(progress_msg, title)
         await ctx.bot.send_chat_action(chat_id, ChatAction.UPLOAD_VIDEO)
 
         direct_url = fmt.get("direct_url")
@@ -514,10 +537,11 @@ async def _handle_download(query, ctx, url: str, info: dict,
             )
         else:
             user_err = f"❌ <b>Operation failed.</b>\n\nError: <code>{html.escape(err_msg[:200])}</code>"
-        try:
-            await progress_msg.edit_text(user_err, parse_mode="HTML")
-        except Exception:
-            pass
+        if progress_msg:
+            try:
+                await progress_msg.edit_text(user_err, parse_mode="HTML")
+            except Exception:
+                pass
     finally:
         # Clean up local file
         if filepath and os.path.exists(filepath):
@@ -525,6 +549,9 @@ async def _handle_download(query, ctx, url: str, info: dict,
                 os.remove(filepath)
             except Exception:
                 pass
+        if acquired_locks:
+            _system_download_semaphore.release()
+            user_lock.release()
 
 
 # ─── Payment URL helper ───────────────────────────────────────

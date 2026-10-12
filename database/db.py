@@ -8,14 +8,18 @@ async def get_db() -> aiosqlite.Connection:
     db = await aiosqlite.connect(DB_PATH)
     db.row_factory = aiosqlite.Row
     await db.execute("PRAGMA journal_mode=WAL")
+    await db.execute("PRAGMA synchronous=NORMAL")
+    await db.execute("PRAGMA temp_store=MEMORY")
     return db
 
 
 async def init_db():
-    """Initialize all tables on first run."""
+    """Initialize all tables and high-speed indexes on first run."""
     async with aiosqlite.connect(DB_PATH) as db:
         db.row_factory = aiosqlite.Row
         await db.execute("PRAGMA journal_mode=WAL")
+        await db.execute("PRAGMA synchronous=NORMAL")
+        await db.execute("PRAGMA temp_store=MEMORY")
 
         await db.execute("""
             CREATE TABLE IF NOT EXISTS users (
@@ -79,8 +83,11 @@ async def init_db():
                 cached_at   TEXT DEFAULT (datetime('now'))
             )
         """)
-        await db.execute("""
-            CREATE INDEX IF NOT EXISTS idx_video_cache_key ON video_cache(file_key)
-        """)
+        await db.execute("CREATE INDEX IF NOT EXISTS idx_video_cache_key ON video_cache(file_key)")
+        await db.execute("CREATE INDEX IF NOT EXISTS idx_users_username ON users(username)")
+        await db.execute("CREATE INDEX IF NOT EXISTS idx_downloads_user_id ON downloads(user_id)")
+        await db.execute("CREATE INDEX IF NOT EXISTS idx_scheduled_deletions_delete_at ON scheduled_deletions(delete_at)")
+        await db.execute("CREATE INDEX IF NOT EXISTS idx_payments_user_id ON payments(user_id)")
+        await db.execute("CREATE INDEX IF NOT EXISTS idx_payments_order_id ON payments(order_id)")
 
         await db.commit()
