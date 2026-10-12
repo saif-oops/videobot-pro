@@ -1,0 +1,86 @@
+import aiosqlite
+import os
+
+DB_PATH = os.getenv("DB_PATH", "videobot.db")
+
+
+async def get_db() -> aiosqlite.Connection:
+    db = await aiosqlite.connect(DB_PATH)
+    db.row_factory = aiosqlite.Row
+    await db.execute("PRAGMA journal_mode=WAL")
+    return db
+
+
+async def init_db():
+    """Initialize all tables on first run."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        await db.execute("PRAGMA journal_mode=WAL")
+
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS users (
+                user_id          INTEGER PRIMARY KEY,
+                username         TEXT,
+                full_name        TEXT,
+                is_premium       INTEGER DEFAULT 0,
+                free_uses        INTEGER DEFAULT 5,
+                total_uses       INTEGER DEFAULT 0,
+                joined_at        TEXT    DEFAULT (datetime('now')),
+                premium_since    TEXT,
+                is_banned        INTEGER DEFAULT 0
+            )
+        """)
+
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS downloads (
+                id        INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id   INTEGER NOT NULL,
+                link      TEXT,
+                title     TEXT,
+                quality   TEXT,
+                action    TEXT,           -- 'play' | 'download'
+                file_size INTEGER,
+                timestamp TEXT DEFAULT (datetime('now'))
+            )
+        """)
+
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS payments (
+                id             INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id        INTEGER NOT NULL,
+                order_id       TEXT    UNIQUE,
+                payment_link_id TEXT,
+                payment_id     TEXT,
+                amount_paise   INTEGER,
+                status         TEXT    DEFAULT 'pending',  -- pending | paid | failed
+                created_at     TEXT    DEFAULT (datetime('now')),
+                paid_at        TEXT
+            )
+        """)
+
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS scheduled_deletions (
+                id         INTEGER PRIMARY KEY AUTOINCREMENT,
+                chat_id    INTEGER NOT NULL,
+                message_id INTEGER NOT NULL,
+                delete_at  TEXT    NOT NULL
+            )
+        """)
+
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS video_cache (
+                id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                file_key    TEXT UNIQUE,
+                file_id     TEXT NOT NULL,
+                title       TEXT,
+                file_size   INTEGER,
+                duration    INTEGER,
+                quality     TEXT,
+                cached_at   TEXT DEFAULT (datetime('now'))
+            )
+        """)
+        await db.execute("""
+            CREATE INDEX IF NOT EXISTS idx_video_cache_key ON video_cache(file_key)
+        """)
+
+        await db.commit()

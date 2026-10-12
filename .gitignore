@@ -1,0 +1,23 @@
+# Environment
+.env
+
+# Downloads folder (temp files)
+downloads/
+
+# Database
+*.db
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Virtual environments
+venv/
+env/
+.venv/
+
+# IDE
+.vscode/
+.idea/

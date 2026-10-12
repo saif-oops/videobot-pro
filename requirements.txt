@@ -1,0 +1,11 @@
+python-telegram-bot>=21.6
+httpx>=0.27.0
+aiosqlite>=0.20.0
+yt-dlp>=2024.5.27
+razorpay>=1.4.1
+python-dotenv>=1.0.1
+beautifulsoup4>=4.12.3
+starlette>=0.41.0
+uvicorn>=0.32.0
+# Pinned to pure-Python build — the C-extension version crashes on Python 3.14
+charset_normalizer==3.3.2
