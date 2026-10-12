@@ -36,9 +36,16 @@ async def init_db():
                 total_uses       INTEGER DEFAULT 0,
                 joined_at        TEXT    DEFAULT (datetime('now')),
                 premium_since    TEXT,
+                premium_until    TEXT,
                 is_banned        INTEGER DEFAULT 0
             )
         """)
+
+        # Migration: add premium_until if upgrading existing DB
+        try:
+            await db.execute("ALTER TABLE users ADD COLUMN premium_until TEXT")
+        except Exception:
+            pass
 
         await db.execute("""
             CREATE TABLE IF NOT EXISTS downloads (

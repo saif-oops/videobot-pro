@@ -9,7 +9,7 @@ A paid Telegram bot that plays and downloads videos from **Terabox** and **DiskW
 - ⬇️ **Download** with quality selection (1080p, 720p, 480p…)
 - 📊 **Live progress bar** while downloading
 - 🎫 **5 free videos** per user, then paid upgrade
-- 💳 **₹99 Lifetime Premium** via Razorpay
+- 💳 **₹99 Monthly Premium (30 Days)** via Razorpay
 - 🛡️ **Admin panel** — manage users, broadcast, view stats
 - 🚀 **Railway deployment** ready
 

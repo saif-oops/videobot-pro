@@ -39,7 +39,7 @@ def selected_quality_keyboard(url_hash: str, fmt_idx: int,
 
 def buy_premium_keyboard(payment_url: str) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup([[
-        InlineKeyboardButton("💳 Pay ₹99 — Lifetime Premium", url=payment_url),
+        InlineKeyboardButton("💳 Pay ₹99 — Monthly Premium (30 Days)", url=payment_url),
     ], [
         InlineKeyboardButton("✅ I've Paid — Verify", callback_data="verify_payment"),
     ]])
@@ -92,9 +92,10 @@ def quota_exceeded_message() -> str:
     return (
         "❌ <b>Free Limit Reached!</b>\n\n"
         "You've used all <b>5 free video plays/downloads</b>.\n\n"
-        "🌟 Upgrade to <b>Premium</b> for just <b>₹99 Lifetime</b>\n"
+        "🌟 Upgrade to <b>Monthly Premium</b> for just <b>₹99 / Month</b>\n"
         "✅ Unlimited downloads & plays\n"
-        "✅ All platforms supported\n"
+        "✅ All platforms supported (TeraBox & DiskWala)\n"
+        "✅ 30 Days of full uninterrupted access\n"
         "✅ Priority support\n\n"
         "👇 Tap below to pay securely via Razorpay:"
     )

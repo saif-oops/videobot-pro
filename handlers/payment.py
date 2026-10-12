@@ -31,14 +31,14 @@ async def create_payment_link(user_id: int, full_name: str) -> str:
         "amount": PREMIUM_PRICE_PAISE,
         "currency": "INR",
         "receipt": f"user_{user_id}",
-        "notes": {"user_id": str(user_id), "plan": "lifetime"},
+        "notes": {"user_id": str(user_id), "plan": "monthly_30d"},
     })
 
     # Create payment link
     link_data = client.payment_link.create({
         "amount": PREMIUM_PRICE_PAISE,
         "currency": "INR",
-        "description": f"VideoBot Pro — Lifetime Premium",
+        "description": "VideoBot Pro — Monthly Premium (30 Days)",
         "customer": {"name": full_name},
         "notify": {"sms": False, "email": False},
         "reminder_enable": False,
@@ -94,18 +94,19 @@ async def premium_command(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         return
 
     text = (
-        "💎 *VideoBot Pro — Lifetime Premium*\n\n"
-        f"💰 Price: *₹{PREMIUM_PRICE_INR} (One-time payment)*\n"
+        "💎 *VideoBot Pro — Monthly Premium*\n\n"
+        f"💰 Price: *₹{PREMIUM_PRICE_INR} / Month (30 Days)*\n"
         "✅ Unlimited video plays & downloads\n"
         "✅ All quality options (4K → 360p)\n"
-        "✅ Terabox + DiskWala support\n"
-        "✅ Priority bot access — forever!\n\n"
-        "🔒 Secure payment via *Razorpay*\n\n"
+        "✅ TeraBox + DiskWala support\n"
+        "✅ Priority high-speed cloud access\n"
+        "⏳ Validity: *30 Days*\n\n"
+        "🔒 Secure payment via *Razorpay (UPI, GPay, Paytm, Cards)*\n\n"
         "👇 Click the button below to pay:"
     )
 
     kb = InlineKeyboardMarkup([[
-        InlineKeyboardButton(f"💳 Pay ₹{PREMIUM_PRICE_INR} — Get Premium", url=payment_url),
+        InlineKeyboardButton(f"💳 Pay ₹{PREMIUM_PRICE_INR} — 30 Days Access", url=payment_url),
     ], [
         InlineKeyboardButton("✅ I've Paid — Check Status", callback_data="verify_payment"),
     ]])
@@ -159,7 +160,7 @@ async def process_payment_webhook(payload: dict, bot) -> bool:
 
     from database.models import mark_payment_paid
     await mark_payment_paid(order_id, payment_id)
-    await grant_premium(user_id)
+    await grant_premium(user_id, days=30)
 
     # Notify user
     try:
@@ -167,9 +168,9 @@ async def process_payment_webhook(payload: dict, bot) -> bool:
             chat_id=user_id,
             text=(
                 "🎉 *Payment Successful! Welcome to Premium!*\n\n"
-                "✅ Your account has been upgraded to *Lifetime Premium*.\n"
-                "🚀 Enjoy unlimited video downloads — forever!\n\n"
-                "Send any Terabox or DiskWala link to get started."
+                "✅ Your account has been upgraded to *Monthly Premium (30 Days)*.\n"
+                "🚀 Enjoy unlimited video downloads and streaming!\n\n"
+                "Send any TeraBox or DiskWala link to get started."
             ),
             parse_mode="Markdown",
         )

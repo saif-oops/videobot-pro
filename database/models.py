@@ -53,7 +53,18 @@ async def can_use(user_id: int) -> tuple[bool, str]:
     if user["is_banned"]:
         return False, "⛔ You are banned from using this bot."
     if user["is_premium"]:
-        return True, "premium"
+        # Verify expiration if premium_until is present
+        premium_until = user.get("premium_until")
+        if premium_until:
+            async with aiosqlite.connect(DB_PATH) as db:
+                cur = await db.execute("SELECT datetime('now') > ?", (premium_until,))
+                row = await cur.fetchone()
+                if row and row[0] == 1:
+                    await db.execute("UPDATE users SET is_premium = 0 WHERE user_id = ?", (user_id,))
+                    await db.commit()
+                    user["is_premium"] = 0
+        if user["is_premium"]:
+            return True, "premium"
     if user["free_uses"] > 0:
         return True, "free"
     return False, "quota_exceeded"
@@ -79,14 +90,23 @@ async def increment_total_uses(user_id: int):
         await db.commit()
 
 
-async def grant_premium(user_id: int):
+async def grant_premium(user_id: int, days: int = 30):
+    """Grant or extend monthly premium (default 30 days)."""
     async with aiosqlite.connect(DB_PATH) as db:
         await db.execute("""
             UPDATE users
             SET is_premium = 1,
-                premium_since = datetime('now')
+                premium_since = COALESCE(premium_since, datetime('now')),
+                premium_until = datetime(
+                    CASE 
+                        WHEN premium_until IS NOT NULL AND premium_until > datetime('now') 
+                        THEN premium_until 
+                        ELSE datetime('now') 
+                    END, 
+                    '+' || ? || ' days'
+                )
             WHERE user_id = ?
-        """, (user_id,))
+        """, (days, user_id))
         await db.commit()
 
 
@@ -95,7 +115,7 @@ async def revoke_premium(user_id: int):
         await db.execute("""
             UPDATE users
             SET is_premium = 0,
-                premium_since = NULL
+                premium_until = NULL
             WHERE user_id = ?
         """, (user_id,))
         await db.commit()

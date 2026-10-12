@@ -45,7 +45,7 @@ async def admin_panel(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         f"💰 Total Payments: *{stats['total_paid']}*\n\n"
         "━━━━━━━━━━━━━━━━━━━━\n"
         "⚙️ *Commands:*\n"
-        "/grant @username — Give premium\n"
+        "/grant @username [days] — Give premium (default 30 days)\n"
         "/revoke @username — Remove premium\n"
         "/addquota @username 5 — Add free uses\n"
         "/ban @username — Ban user\n"
@@ -72,19 +72,22 @@ async def stats_command(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
 async def grant_command(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     args = ctx.args
     if not args:
-        await update.message.reply_text("Usage: /grant @username or /grant user_id")
+        await update.message.reply_text("Usage: /grant @username [days] (default 30 days)")
         return
 
     target = args[0].lstrip("@")
-    user = await _resolve_target(target)
+    days = 30
+    if len(args) > 1 and args[1].isdigit():
+        days = int(args[1])
 
+    user = await _resolve_target(target)
     if not user:
         await update.message.reply_text(f"❌ User `{target}` not found.", parse_mode="Markdown")
         return
 
-    await grant_premium(user["user_id"])
+    await grant_premium(user["user_id"], days=days)
     await update.message.reply_text(
-        f"✅ Premium granted to *{user['full_name']}* (ID: `{user['user_id']}`).",
+        f"✅ Premium ({days} days) granted to *{user['full_name']}* (ID: `{user['user_id']}`).",
         parse_mode="Markdown"
     )
 
@@ -95,8 +98,8 @@ async def grant_command(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
             chat_id=user["user_id"],
             text=(
                 "🎉 *Premium Activated!*\n\n"
-                "Your account has been upgraded to *Lifetime Premium* by admin.\n"
-                "Enjoy unlimited downloads! 🚀"
+                f"Your account has been upgraded to *Monthly Premium ({days} Days)* by admin.\n"
+                "Enjoy unlimited downloads & streaming! 🚀"
             ),
             parse_mode="Markdown"
         )
@@ -214,7 +217,11 @@ async def lookup_command(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(f"❌ User `{target}` not found.", parse_mode="Markdown")
         return
 
-    tier = "🌟 Premium" if user["is_premium"] else "🎫 Free"
+    if user["is_premium"]:
+        expiry = f" (Expires: {user['premium_until']})" if user.get("premium_until") else " (Active)"
+        tier = f"🌟 Premium{expiry}"
+    else:
+        tier = "🎫 Free"
     banned = "⛔ Banned" if user["is_banned"] else "✅ Active"
     text = (
         f"👤 *User Info*\n\n"

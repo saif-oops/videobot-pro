@@ -555,7 +555,7 @@ async def _handle_download(query, ctx, url: str, info: dict,
                     chat_id=chat_id,
                     text=(
                         f"⚠️ <b>Only {rem} free use(s) remaining!</b>\n"
-                        "Upgrade to Premium for ₹99 lifetime — use /premium"
+                        "Upgrade to Premium for ₹99/month (30 Days) — use /premium"
                     ),
                     parse_mode="HTML"
                 )

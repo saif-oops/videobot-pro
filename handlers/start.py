@@ -16,7 +16,7 @@ START_TEXT = (
     "  📦 <b>Terabox</b>\n"
     "  💾 <b>DiskWala</b>\n\n"
     "🎫 You get <b>{quota} free videos</b> to try.\n"
-    "🌟 Upgrade to <b>Premium</b> (₹{price} Lifetime) for unlimited access.\n\n"
+    "🌟 Upgrade to <b>Premium</b> (₹{price} / Month) for unlimited access.\n\n"
     "━━━━━━━━━━━━━━━━━━━━\n"
     "📌 <b>How to use:</b>\n"
     "  Just send me any Terabox or DiskWala link!\n\n"
@@ -34,7 +34,7 @@ HELP_TEXT = (
     "<b>Q: What's the free limit?</b>\n"
     f"A: {FREE_QUOTA} free video plays/downloads. After that, upgrade to Premium.\n\n"
     "<b>Q: What does Premium include?</b>\n"
-    "A: Unlimited plays & downloads, all qualities, forever — one-time ₹99 payment.\n\n"
+    "A: Unlimited plays & downloads, all qualities — ₹99 per month (30 days validity).\n\n"
     "<b>Q: How do I pay?</b>\n"
     "A: Use /premium to get a secure Razorpay payment link.\n\n"
     "<b>Q: Is payment safe?</b>\n"
@@ -96,11 +96,14 @@ async def status_handler(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         return
 
     if db_user["is_premium"]:
-        tier = "🌟 <b>Premium</b> (Lifetime)"
+        expiry_info = ""
+        if db_user.get("premium_until"):
+            expiry_info = f"\n⏳ <b>Expires:</b> <code>{db_user['premium_until']}</code>"
+        tier = f"🌟 <b>Premium</b> (Monthly Plan){expiry_info}"
         quota_line = "✅ Unlimited plays & downloads"
     else:
         remaining = db_user["free_uses"]
-        tier = "🎫 <b>Free</b>"
+        tier = "🎫 <b>Free Tier</b>"
         bar_filled = min(5 - remaining, 5)
         bar = "🟥" * bar_filled + "⬜" * remaining
         quota_line = f"{bar} {remaining}/5 free uses left"
@@ -117,7 +120,7 @@ async def status_handler(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     if not db_user["is_premium"]:
         from telegram import InlineKeyboardButton, InlineKeyboardMarkup
         kb = InlineKeyboardMarkup([[
-            InlineKeyboardButton("🌟 Upgrade to Premium — ₹99", callback_data="goto_premium")
+            InlineKeyboardButton("🌟 Upgrade to Premium — ₹99/mo", callback_data="goto_premium")
         ]])
         await update.message.reply_text(text, parse_mode="HTML", reply_markup=kb)
     else:
