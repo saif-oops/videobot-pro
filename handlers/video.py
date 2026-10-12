@@ -135,9 +135,10 @@ async def link_handler(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
 
     # Send thumbnail if available
     photo_sent = False
+    card_msg = None
     if info.get("thumbnail"):
         try:
-            await ctx.bot.send_photo(
+            card_msg = await ctx.bot.send_photo(
                 chat_id=msg.chat_id,
                 photo=info["thumbnail"],
                 caption=text,
@@ -149,16 +150,22 @@ async def link_handler(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
                 await fetching_msg.delete()
             except Exception:
                 pass
-            return
         except Exception as e:
             logger.warning(f"Could not send thumbnail photo: {e}")
             photo_sent = False
 
     if not photo_sent:
         try:
-            await fetching_msg.edit_text(text, parse_mode="HTML", reply_markup=keyboard)
+            card_msg = await fetching_msg.edit_text(text, parse_mode="HTML", reply_markup=keyboard)
         except Exception:
-            await msg.reply_text(text, parse_mode="HTML", reply_markup=keyboard)
+            card_msg = await msg.reply_text(text, parse_mode="HTML", reply_markup=keyboard)
+
+    # Automatically schedule the unlocked card for deletion
+    if card_msg and AUTO_DELETE_MINUTES > 0:
+        try:
+            await schedule_message_deletion(msg.chat_id, card_msg.message_id, AUTO_DELETE_MINUTES * 60)
+        except Exception as de:
+            logger.warning(f"Could not schedule card deletion: {de}")
 
 
 # ─── Callback Query Handler ───────────────────────────────────
