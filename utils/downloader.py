@@ -5,6 +5,7 @@ import asyncio
 import logging
 import os
 import re
+import shutil
 import subprocess
 import time
 from typing import Callable, Optional
@@ -120,15 +121,39 @@ YTDLP_BASE_OPTS = {
 
 # ─── TeraBox Extractor ────────────────────────────────────────
 
-def _get_chrome_path() -> str:
+def _get_chrome_path() -> Optional[str]:
+    """Locate Chrome or Chromium executable cross-platform (Windows / Linux / macOS / Docker)."""
+    # 1. Environment variable override
+    env_bin = os.getenv("CHROME_BIN") or os.getenv("GOOGLE_CHROME_BIN")
+    if env_bin and os.path.exists(env_bin):
+        return env_bin
+
+    # 2. Cross-platform PATH lookup via shutil.which
+    for name in ["google-chrome", "google-chrome-stable", "chromium", "chromium-browser", "chrome"]:
+        which_path = shutil.which(name)
+        if which_path:
+            return which_path
+
+    # 3. Known standard Windows installation paths
     for p in [
         r"C:\Program Files\Google\Chrome\Application\chrome.exe",
         r"C:\Program Files (x86)\Google\Chrome\Application\chrome.exe",
-        r"C:\Users\md112\AppData\Local\Google\Chrome\Application\chrome.exe",
+        os.path.expandvars(r"%LOCALAPPDATA%\Google\Chrome\Application\chrome.exe"),
+    ]:
+        if p and os.path.exists(p):
+            return p
+
+    # 4. Known standard Linux/macOS paths
+    for p in [
+        "/usr/bin/google-chrome",
+        "/usr/bin/chromium",
+        "/usr/bin/chromium-browser",
+        "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
     ]:
         if os.path.exists(p):
             return p
-    return "chrome"
+
+    return None
 
 
 def _extract_terabox_fast(url: str) -> dict:
@@ -280,21 +305,24 @@ def _extract_terabox_sync(url: str) -> dict:
             pass
 
     chrome_bin = _get_chrome_path()
-    cmd = [
-        chrome_bin,
-        "--headless=new",
-        "--disable-gpu",
-        "--no-sandbox",
-        "--disable-extensions",
-        "--blink-settings=imagesEnabled=false",
-        "--dump-dom",
-        final_url,
-    ]
-    try:
-        res = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", timeout=15)
-        soup = BeautifulSoup(res.stdout, "html.parser")
-    except Exception:
-        soup = None
+    soup = None
+    if chrome_bin:
+        cmd = [
+            chrome_bin,
+            "--headless=new",
+            "--disable-gpu",
+            "--no-sandbox",
+            "--disable-extensions",
+            "--blink-settings=imagesEnabled=false",
+            "--dump-dom",
+            final_url,
+        ]
+        try:
+            res = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", timeout=15)
+            soup = BeautifulSoup(res.stdout, "html.parser")
+        except Exception as e:
+            logger.debug(f"Headless Chrome DOM extraction failed: {e}")
+            soup = None
 
     if soup:
         page_text = soup.get_text()
