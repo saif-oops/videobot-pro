@@ -472,13 +472,14 @@ def _cors_headers():
 
 def create_starlette_app(webhook_mode: bool) -> Starlette:
     routes = [
-        # Existing routes
-        Route("/",                  health),
+        # Home & Player routes
+        Route("/",                  player_page),
+        Route("/health",            health),
+        Route("/player",            player_page),
+
+        # Payments
         Route("/webhook/razorpay",  razorpay_webhook, methods=["POST"]),
         Route("/payment/success",   payment_success),
-
-        # Player routes
-        Route("/player",            player_page),
 
         # API routes
         Route("/api/fetch",         api_fetch, methods=["POST", "OPTIONS"]),
