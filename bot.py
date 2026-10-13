@@ -48,7 +48,7 @@ from telegram.ext import (
 
 from config import BOT_TOKEN, PORT, WEBHOOK_URL, ALLOWED_STREAM_DOMAINS
 from database.db import init_db
-from handlers.start import start_handler, help_handler, status_handler
+from handlers.start import start_handler, help_handler, status_handler, refer_handler
 from handlers.video import link_handler, callback_handler
 from handlers.payment import (
     premium_command, verify_razorpay_webhook, process_payment_webhook,
@@ -88,6 +88,8 @@ def build_ptb_app() -> Application:
     app.add_handler(CommandHandler("start",   start_handler))
     app.add_handler(CommandHandler("help",    help_handler))
     app.add_handler(CommandHandler("status",  status_handler))
+    app.add_handler(CommandHandler("refer",   refer_handler))
+    app.add_handler(CommandHandler("share",   refer_handler))
     app.add_handler(CommandHandler("premium", premium_command))
 
     # ── Admin commands ──

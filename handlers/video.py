@@ -179,6 +179,11 @@ async def callback_handler(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         await query.message.delete()
         return
 
+    if data == "refresh_refer":
+        from handlers.start import refresh_refer_callback
+        await refresh_refer_callback(update, ctx)
+        return
+
     if data == "check_fsub":
         from utils.fsub import is_subscribed
         joined = await is_subscribed(ctx.bot, query.from_user.id)
@@ -448,16 +453,48 @@ async def _handle_download(query, ctx, url: str, info: dict,
 
         # Check Telegram 50MB limit
         if file_size_mb > 50:
-            watch_url = html.escape(info.get("final_url") or url)
-            await progress_msg.edit_text(
-                f"⚠️ <b>File too large for Telegram!</b>\n\n"
-                f"📦 Size: <b>{file_size_mb:.1f} MB</b> (limit: 50 MB)\n\n"
-                f"🌐 You can watch it directly in browser:\n"
-                f"<a href=\"{watch_url}\">👉 Tap here to watch online</a>\n\n"
-                f"Or try selecting a lower quality resolution.",
-                parse_mode="HTML",
-                disable_web_page_preview=False,
+            # Immediately delete temp file on server to prevent filling container storage
+            try:
+                if filepath and os.path.exists(filepath):
+                    os.remove(filepath)
+                    filepath = None
+            except Exception:
+                pass
+
+            from utils.keyboards import large_file_keyboard
+            stream_direct = direct_url or fmt.get("direct_url") or info.get("final_url") or ""
+            large_kb = large_file_keyboard(
+                original_url=url,
+                direct_url=stream_direct,
+                title=title,
+                file_size_mb=file_size_mb,
             )
+
+            large_text = (
+                f"⚡ <b>Large File Ready: {file_size_mb:.1f} MB</b>\n\n"
+                f"📹 <b>Title:</b> <code>{esc_title}</code>\n"
+                f"🎚 <b>Quality:</b> <b>{html.escape(fmt['label'])}</b>\n"
+                f"📦 <b>Size:</b> <b>{file_size_mb:.1f} MB</b>\n\n"
+                "ℹ️ <i>Telegram Bot API limits direct in-chat uploads to 50 MB, but you can stream or download this entire file at full speed below:</i>"
+            )
+
+            await progress_msg.edit_text(
+                large_text,
+                parse_mode="HTML",
+                reply_markup=large_kb,
+            )
+
+            # Schedule auto-delete
+            if AUTO_DELETE_MINUTES > 0 and progress_msg:
+                delay_sec = AUTO_DELETE_MINUTES * 60
+                await schedule_message_deletion(chat_id, progress_msg.message_id, delay_sec)
+
+            # Decrement quota & log
+            db_user = await get_user(tg_user.id)
+            if not db_user["is_premium"]:
+                await decrement_free_uses(tg_user.id)
+            await increment_total_uses(tg_user.id)
+            await log_download(tg_user.id, url, title, fmt["label"], "web_download", file_size)
             return
 
         await progress.sending()

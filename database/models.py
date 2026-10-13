@@ -10,13 +10,13 @@ from config import FREE_QUOTA
 #  USER FUNCTIONS
 # ══════════════════════════════════════════════════════════
 
-async def get_or_create_user(user_id: int, username: str, full_name: str) -> dict:
+async def get_or_create_user(user_id: int, username: str, full_name: str, referred_by: int | None = None) -> dict:
     async with aiosqlite.connect(DB_PATH) as db:
         db.row_factory = aiosqlite.Row
         await db.execute("""
-            INSERT OR IGNORE INTO users (user_id, username, full_name)
-            VALUES (?, ?, ?)
-        """, (user_id, username, full_name))
+            INSERT OR IGNORE INTO users (user_id, username, full_name, referred_by)
+            VALUES (?, ?, ?, ?)
+        """, (user_id, username, full_name, referred_by))
         await db.commit()
 
         cursor = await db.execute(
@@ -24,6 +24,77 @@ async def get_or_create_user(user_id: int, username: str, full_name: str) -> dic
         )
         row = await cursor.fetchone()
         return dict(row) if row else {}
+
+
+async def process_referral_join(referrer_id: int, new_user_id: int, username: str, full_name: str) -> tuple[dict, bool, bool]:
+    """
+    Process a new user joining via a referral link.
+    Returns (user_dict, was_awarded: bool, milestone_unlocked: bool).
+    """
+    if referrer_id == new_user_id:
+        u = await get_or_create_user(new_user_id, username, full_name)
+        return u, False, False
+
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+
+        # Check if new_user already exists
+        cur = await db.execute("SELECT * FROM users WHERE user_id = ?", (new_user_id,))
+        existing = await cur.fetchone()
+        if existing:
+            return dict(existing), False, False
+
+        # Verify referrer exists
+        cur = await db.execute("SELECT * FROM users WHERE user_id = ?", (referrer_id,))
+        ref_user = await cur.fetchone()
+        if not ref_user:
+            u = await get_or_create_user(new_user_id, username, full_name)
+            return u, False, False
+
+        # Create new user with +1 bonus free use for using invite link
+        new_free_quota = FREE_QUOTA + 1
+        await db.execute("""
+            INSERT INTO users (user_id, username, full_name, free_uses, referred_by)
+            VALUES (?, ?, ?, ?, ?)
+        """, (new_user_id, username, full_name, new_free_quota, referrer_id))
+
+        # Record referral
+        await db.execute("""
+            INSERT INTO referrals (referrer_id, referred_id, bonus_uses)
+            VALUES (?, ?, 2)
+        """, (referrer_id, new_user_id))
+
+        # Reward referrer with +2 free uses and increment referral_count
+        new_ref_count = (ref_user["referral_count"] or 0) + 1
+        await db.execute("""
+            UPDATE users
+            SET free_uses = free_uses + 2,
+                referral_count = ?
+            WHERE user_id = ?
+        """, (new_ref_count, referrer_id))
+        await db.commit()
+
+        # Check milestone: every 5 referrals = 3 days premium
+        milestone = (new_ref_count % 5 == 0)
+        if milestone:
+            await grant_premium(referrer_id, days=3)
+
+        cur = await db.execute("SELECT * FROM users WHERE user_id = ?", (new_user_id,))
+        new_user = await cur.fetchone()
+        return dict(new_user) if new_user else {}, True, milestone
+
+
+async def get_referral_stats(user_id: int) -> dict:
+    """Retrieve referral count and bonuses for a user."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        cur = await db.execute("SELECT referral_count FROM users WHERE user_id = ?", (user_id,))
+        row = await cur.fetchone()
+        count = (row["referral_count"] or 0) if row else 0
+        return {
+            "total_referred": count,
+            "bonus_uses": count * 2,
+        }
 
 
 async def get_user(user_id: int) -> Optional[dict]:
@@ -211,6 +282,8 @@ async def get_stats() -> dict:
         total_dl = (await (await db.execute("SELECT COUNT(*) FROM downloads")).fetchone())[0]
         total_paid = (await (await db.execute(
             "SELECT COUNT(*) FROM payments WHERE status='paid'")).fetchone())[0]
+        total_referrals = (await (await db.execute(
+            "SELECT COUNT(*) FROM referrals")).fetchone())[0]
         return {
             "total_users": total,
             "premium_users": premium,
@@ -218,6 +291,7 @@ async def get_stats() -> dict:
             "downloads_today": today_dl,
             "total_downloads": total_dl,
             "total_paid": total_paid,
+            "total_referrals": total_referrals,
         }
 
 

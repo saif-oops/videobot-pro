@@ -37,13 +37,23 @@ async def init_db():
                 joined_at        TEXT    DEFAULT (datetime('now')),
                 premium_since    TEXT,
                 premium_until    TEXT,
+                referred_by      INTEGER,
+                referral_count   INTEGER DEFAULT 0,
                 is_banned        INTEGER DEFAULT 0
             )
         """)
 
-        # Migration: add premium_until if upgrading existing DB
+        # Migrations: add columns if upgrading existing DB
         try:
             await db.execute("ALTER TABLE users ADD COLUMN premium_until TEXT")
+        except Exception:
+            pass
+        try:
+            await db.execute("ALTER TABLE users ADD COLUMN referred_by INTEGER")
+        except Exception:
+            pass
+        try:
+            await db.execute("ALTER TABLE users ADD COLUMN referral_count INTEGER DEFAULT 0")
         except Exception:
             pass
 
@@ -95,11 +105,21 @@ async def init_db():
                 cached_at   TEXT DEFAULT (datetime('now'))
             )
         """)
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS referrals (
+                id           INTEGER PRIMARY KEY AUTOINCREMENT,
+                referrer_id  INTEGER NOT NULL,
+                referred_id  INTEGER UNIQUE NOT NULL,
+                bonus_uses   INTEGER DEFAULT 2,
+                created_at   TEXT DEFAULT (datetime('now'))
+            )
+        """)
         await db.execute("CREATE INDEX IF NOT EXISTS idx_video_cache_key ON video_cache(file_key)")
         await db.execute("CREATE INDEX IF NOT EXISTS idx_users_username ON users(username)")
         await db.execute("CREATE INDEX IF NOT EXISTS idx_downloads_user_id ON downloads(user_id)")
         await db.execute("CREATE INDEX IF NOT EXISTS idx_scheduled_deletions_delete_at ON scheduled_deletions(delete_at)")
         await db.execute("CREATE INDEX IF NOT EXISTS idx_payments_user_id ON payments(user_id)")
+        await db.execute("CREATE INDEX IF NOT EXISTS idx_referrals_referrer ON referrals(referrer_id)")
         await db.commit()
 
 

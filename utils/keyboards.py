@@ -45,6 +45,44 @@ def buy_premium_keyboard(payment_url: str) -> InlineKeyboardMarkup:
     ]])
 
 
+def large_file_keyboard(original_url: str, direct_url: str, title: str, file_size_mb: float) -> InlineKeyboardMarkup:
+    """Keyboard for files exceeding Telegram's 50MB bot upload limit."""
+    rows = []
+    target_url = original_url or direct_url
+    if TERABOX_WEBAPP_URL.startswith("https://") and target_url:
+        player_link = f"{TERABOX_WEBAPP_URL}?url={quote(target_url, safe='')}"
+        rows.append([
+            InlineKeyboardButton("🌐 Stream in Mini App", web_app=WebAppInfo(url=player_link))
+        ])
+        base_api = TERABOX_WEBAPP_URL.replace("/player", "").rstrip("/")
+        if direct_url:
+            dl_link = f"{base_api}/api/download?url={quote(direct_url, safe='')}&title={quote(title[:40], safe='')}"
+            rows.append([
+                InlineKeyboardButton(f"⬇️ Direct Browser Download ({file_size_mb:.0f} MB)", url=dl_link)
+            ])
+        else:
+            rows.append([
+                InlineKeyboardButton(f"⬇️ Open Download Page ({file_size_mb:.0f} MB)", url=player_link)
+            ])
+    elif direct_url:
+        rows.append([
+            InlineKeyboardButton(f"⬇️ Direct Download ({file_size_mb:.0f} MB)", url=direct_url)
+        ])
+
+    rows.append([InlineKeyboardButton("❌ Dismiss", callback_data="cancel")])
+    return InlineKeyboardMarkup(rows)
+
+
+def referral_keyboard(invite_link: str) -> InlineKeyboardMarkup:
+    """Keyboard for /refer sharing and refresh."""
+    share_text = quote("⚡ Stream and download TeraBox & DiskWala videos without 1-sec cuts or ads! Try this bot for free 👉 ")
+    share_url = f"https://t.me/share/url?url={quote(invite_link)}&text={share_text}"
+    return InlineKeyboardMarkup([
+        [InlineKeyboardButton("📤 Share Invite Link", url=share_url)],
+        [InlineKeyboardButton("🔄 Refresh Stats", callback_data="refresh_refer")],
+    ])
+
+
 def admin_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup([
         [
