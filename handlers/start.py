@@ -99,6 +99,27 @@ async def start_handler(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         price=PREMIUM_PRICE_INR,
     )
 
+    from telegram import InlineKeyboardButton, InlineKeyboardMarkup, WebAppInfo
+    from config import TERABOX_WEBAPP_URL
+    from utils.fsub import get_required_channel
+
+    channel = await get_required_channel() or "@TeraBox_Viral_1"
+    channel_url = f"https://t.me/{channel.lstrip('@')}" if channel.startswith("@") else "https://t.me/TeraBox_Viral_1"
+
+    start_kb = []
+    if TERABOX_WEBAPP_URL and TERABOX_WEBAPP_URL.startswith("https://"):
+        start_kb.append([
+            InlineKeyboardButton("🚀 Open Video Downloader ↗", web_app=WebAppInfo(url=TERABOX_WEBAPP_URL))
+        ])
+    start_kb.append([
+        InlineKeyboardButton("📢 Updates Channel", url=channel_url),
+        InlineKeyboardButton("🎁 Refer Friends", callback_data="refresh_refer"),
+    ])
+    start_kb.append([
+        InlineKeyboardButton("👑 Buy VIP — ₹99/Month", callback_data="goto_premium")
+    ])
+    start_keyboard = InlineKeyboardMarkup(start_kb)
+
     icon_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "bot_icon.jpg")
     if os.path.exists(icon_path):
         try:
@@ -107,6 +128,7 @@ async def start_handler(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
                     photo=photo_file,
                     caption=text,
                     parse_mode="HTML",
+                    reply_markup=start_keyboard,
                 )
                 return
         except Exception:
@@ -115,6 +137,7 @@ async def start_handler(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         text,
         parse_mode="HTML",
+        reply_markup=start_keyboard,
     )
 
 

@@ -58,6 +58,7 @@ async def admin_panel(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         "/setchannel @channel — Set required channel (or 'off')\n"
         "/channel — Check current required channel\n"
         "/autodelete [mins] — Set auto-delete timer (e.g. 1, 30, 'off')\n"
+        "/setad [tag/zone] — Set Monetag ad tag for Mini App\n"
         "/grant @username [days] — Give premium (default 30 days)\n"
         "/revoke @username — Remove premium\n"
         "/addquota @username 5 — Add free uses\n"
@@ -544,6 +545,39 @@ async def autodelete_command(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         f"✅ <b>Auto-Delete Timer Updated!</b>\n\n"
         f"Videos and cards will now automatically disappear after <b>{mins} minute{'s' if mins > 1 else ''}</b>.",
+        parse_mode="HTML"
+    )
+
+
+# ─── /setad ───────────────────────────────────────────────────
+
+@admin_only
+async def setad_command(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    """Set or remove the Monetag ad tag / zone ID for the Web App."""
+    args = ctx.args
+    if not args:
+        current = await get_setting("monetag_tag")
+        msg = (
+            f"📢 <b>Current Monetag Ad Tag:</b> <code>{current or 'Default Sponsor Card'}</code>\n\n"
+            "<b>Usage:</b>\n"
+            "• <code>/setad YOUR_MONETAG_TAG_OR_ZONE_ID</code> — Enable live Monetag ads\n"
+            "• <code>/setad off</code> — Use default sponsor card\n\n"
+            "ℹ️ <i>Monetag ads are shown to free users during the 10-second download countdown. VIP users bypass them automatically.</i>"
+        )
+        await update.message.reply_text(msg, parse_mode="HTML")
+        return
+
+    val = " ".join(args).strip()
+    if val.lower() in ("off", "none", "disable", "disabled", "0"):
+        await set_setting("monetag_tag", "")
+        await update.message.reply_text("✅ <b>Monetag Live Ads Disabled!</b> Using default sponsor card.", parse_mode="HTML")
+        return
+
+    await set_setting("monetag_tag", val)
+    await update.message.reply_text(
+        f"✅ <b>Monetag Ad Tag Saved!</b>\n\n"
+        f"Tag: <code>{val}</code>\n\n"
+        "Free users will now see live Monetag ads in the Mini App during the 10-second download countdown.",
         parse_mode="HTML"
     )
 

@@ -57,7 +57,7 @@ from handlers.admin import (
     admin_panel, stats_command, grant_command, revoke_command,
     addquota_command, ban_command, unban_command,
     lookup_command, broadcast_command, backup_command, restore_command,
-    setchannel_command, channel_command, autodelete_command,
+    setchannel_command, channel_command, autodelete_command, setad_command,
 )
 
 logging.basicConfig(
@@ -99,6 +99,7 @@ def build_ptb_app() -> Application:
     app.add_handler(CommandHandler("setchannel", setchannel_command))
     app.add_handler(CommandHandler("channel",    channel_command))
     app.add_handler(CommandHandler("autodelete", autodelete_command))
+    app.add_handler(CommandHandler("setad",      setad_command))
     app.add_handler(CommandHandler("grant",      grant_command))
     app.add_handler(CommandHandler("revoke",     revoke_command))
     app.add_handler(CommandHandler("addquota",   addquota_command))
@@ -460,6 +461,43 @@ async def api_download(request: Request):
 
 
 
+async def api_user_status(request: Request):
+    """Check VIP status and quota for WebApp user."""
+    user_id = request.query_params.get("user_id")
+    from database.models import get_user
+    if not user_id or not user_id.isdigit():
+        return JSONResponse({"is_premium": False, "free_uses": 5}, headers=_cors_headers())
+
+    user = await get_user(int(user_id))
+    if not user:
+        return JSONResponse({"is_premium": False, "free_uses": 5}, headers=_cors_headers())
+
+    return JSONResponse({
+        "user_id": user["user_id"],
+        "is_premium": bool(user["is_premium"]),
+        "free_uses": user.get("free_uses", 0),
+        "premium_until": user.get("premium_until") or "",
+    }, headers=_cors_headers())
+
+
+async def api_config(request: Request):
+    """Dynamic configuration for WebApp (channel, Monetag tag, bot username)."""
+    from database.models import get_setting
+    from utils.fsub import get_required_channel
+    channel = await get_required_channel() or "@TeraBox_Viral_1"
+    monetag_tag = await get_setting("monetag_tag") or ""
+    bot_uname = ""
+    if _ptb_app and _ptb_app.bot:
+        bot_uname = getattr(_ptb_app.bot, "username", "") or ""
+
+    return JSONResponse({
+        "channel": channel,
+        "monetag_tag": monetag_tag,
+        "bot_username": bot_uname,
+        "premium_price": 99,
+    }, headers=_cors_headers())
+
+
 # ─── CORS preflight handler ──────────────────────────────────
 
 async def cors_preflight(request: Request):
@@ -491,6 +529,8 @@ def create_starlette_app(webhook_mode: bool) -> Starlette:
         Route("/api/fetch",         api_fetch, methods=["POST", "OPTIONS"]),
         Route("/api/stream",        api_stream, methods=["GET", "OPTIONS"]),
         Route("/api/download",      api_download, methods=["GET"]),
+        Route("/api/user_status",   api_user_status, methods=["GET", "OPTIONS"]),
+        Route("/api/config",        api_config, methods=["GET", "OPTIONS"]),
 
         # Static files (CSS, JS, etc.)
         Route("/static/{filename:path}", static_file),
