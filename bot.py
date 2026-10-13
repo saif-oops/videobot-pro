@@ -57,6 +57,7 @@ from handlers.admin import (
     admin_panel, stats_command, grant_command, revoke_command,
     addquota_command, ban_command, unban_command,
     lookup_command, broadcast_command, backup_command, restore_command,
+    setchannel_command, channel_command,
 )
 
 logging.basicConfig(
@@ -93,17 +94,19 @@ def build_ptb_app() -> Application:
     app.add_handler(CommandHandler("premium", premium_command))
 
     # ── Admin commands ──
-    app.add_handler(CommandHandler("admin",     admin_panel))
-    app.add_handler(CommandHandler("stats",     stats_command))
-    app.add_handler(CommandHandler("grant",     grant_command))
-    app.add_handler(CommandHandler("revoke",    revoke_command))
-    app.add_handler(CommandHandler("addquota",  addquota_command))
-    app.add_handler(CommandHandler("ban",       ban_command))
-    app.add_handler(CommandHandler("unban",     unban_command))
-    app.add_handler(CommandHandler("lookup",    lookup_command))
-    app.add_handler(CommandHandler("broadcast", broadcast_command))
-    app.add_handler(CommandHandler("backup",    backup_command))
-    app.add_handler(CommandHandler("restore",   restore_command))
+    app.add_handler(CommandHandler("admin",      admin_panel))
+    app.add_handler(CommandHandler("stats",      stats_command))
+    app.add_handler(CommandHandler("setchannel", setchannel_command))
+    app.add_handler(CommandHandler("channel",    channel_command))
+    app.add_handler(CommandHandler("grant",      grant_command))
+    app.add_handler(CommandHandler("revoke",     revoke_command))
+    app.add_handler(CommandHandler("addquota",   addquota_command))
+    app.add_handler(CommandHandler("ban",        ban_command))
+    app.add_handler(CommandHandler("unban",      unban_command))
+    app.add_handler(CommandHandler("lookup",     lookup_command))
+    app.add_handler(CommandHandler("broadcast",  broadcast_command))
+    app.add_handler(CommandHandler("backup",     backup_command))
+    app.add_handler(CommandHandler("restore",    restore_command))
 
     # ── Callbacks ──
     app.add_handler(CallbackQueryHandler(callback_handler))

@@ -66,9 +66,9 @@ async def link_handler(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     from utils.fsub import is_subscribed, get_fsub_keyboard, get_fsub_message
     if not await is_subscribed(ctx.bot, tg_user.id):
         await msg.reply_text(
-            get_fsub_message(),
+            await get_fsub_message(),
             parse_mode="HTML",
-            reply_markup=get_fsub_keyboard(),
+            reply_markup=await get_fsub_keyboard(),
         )
         return
 

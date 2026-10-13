@@ -392,3 +392,25 @@ async def save_cached_video(
                 cached_at = datetime('now')
         """, (file_key, file_id, title, file_size, duration, quality))
         await db.commit()
+
+
+# ══════════════════════════════════════════════════════════
+#  BOT SETTINGS FUNCTIONS
+# ══════════════════════════════════════════════════════════
+
+async def get_setting(key: str, default: str = "") -> str:
+    """Retrieve dynamic bot setting value from database."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        cursor = await db.execute("SELECT value FROM settings WHERE key = ?", (key,))
+        row = await cursor.fetchone()
+        return str(row[0]) if row and row[0] is not None else default
+
+
+async def set_setting(key: str, value: str):
+    """Store or update dynamic bot setting in database."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute("""
+            INSERT INTO settings (key, value) VALUES (?, ?)
+            ON CONFLICT(key) DO UPDATE SET value = excluded.value
+        """, (key, value))
+        await db.commit()

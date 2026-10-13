@@ -13,6 +13,7 @@ from database.models import (
     get_stats, get_user, get_all_user_ids,
     grant_premium, revoke_premium, add_free_quota,
     ban_user, unban_user, search_user,
+    get_setting, set_setting,
 )
 
 
@@ -35,6 +36,10 @@ def admin_only(func):
 @admin_only
 async def admin_panel(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     stats = await get_stats()
+    from utils.fsub import get_required_channel
+    channel = await get_required_channel()
+    fsub_display = channel if channel else "Disabled"
+
     text = (
         "🛡️ *Admin Panel*\n\n"
         f"👥 Total Users: *{stats['total_users']}*\n"
@@ -43,9 +48,12 @@ async def admin_panel(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         f"📥 Downloads Today: *{stats['downloads_today']}*\n"
         f"📊 Total Downloads: *{stats['total_downloads']}*\n"
         f"💰 Total Payments: *{stats['total_paid']}*\n"
-        f"🎁 Total Referrals: *{stats.get('total_referrals', 0)}*\n\n"
+        f"🎁 Total Referrals: *{stats.get('total_referrals', 0)}*\n"
+        f"📢 Required Channel: *{fsub_display}*\n\n"
         "━━━━━━━━━━━━━━━━━━━━\n"
         "⚙️ *Commands:*\n"
+        "/setchannel @channel — Set required channel (or 'off')\n"
+        "/channel — Check current required channel\n"
         "/grant @username [days] — Give premium (default 30 days)\n"
         "/revoke @username — Remove premium\n"
         "/addquota @username 5 — Add free uses\n"
@@ -398,6 +406,93 @@ async def restore_command(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         if os.path.exists(backup_old) and not os.path.exists(DB_PATH):
             shutil.copy2(backup_old, DB_PATH)
         await status_msg.edit_text(f"❌ Restore failed: {e}")
+
+
+# ─── /setchannel & /channel ───────────────────────────────────
+
+@admin_only
+async def setchannel_command(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    """Set or remove the force-subscription channel.
+    Usage:
+      /setchannel @YourChannel
+      /setchannel -1001234567890
+      /setchannel off  (disables FSUB)
+    """
+    args = ctx.args
+    if not args:
+        from utils.fsub import get_required_channel
+        current = await get_required_channel()
+        msg = (
+            f"📢 <b>Current Force-Subscribe Channel:</b> <code>{current or 'Disabled'}</code>\n\n"
+            "<b>Usage:</b>\n"
+            "• <code>/setchannel @YourChannel</code> — Require users to join this channel\n"
+            "• <code>/setchannel -1001234567890</code> — Support private channels via ID\n"
+            "• <code>/setchannel off</code> — Disable force-subscription\n\n"
+            "⚠️ <i>Make sure to add this bot as an Admin in your channel!</i>"
+        )
+        await update.message.reply_text(msg, parse_mode="HTML")
+        return
+
+    arg = args[0].strip()
+    if arg.lower() in ("off", "none", "disable", "disabled", "0"):
+        await set_setting("fsub_channel", "")
+        await update.message.reply_text(
+            "✅ <b>Force-Subscription Disabled!</b>\n\nUsers can now use the bot without subscribing to any channel.",
+            parse_mode="HTML"
+        )
+        return
+
+    # Normalize channel username or ID
+    channel = arg if (arg.startswith("@") or arg.startswith("-")) else f"@{arg}"
+
+    # Verify if bot can access the channel and is admin
+    status_note = ""
+    try:
+        bot_info = await ctx.bot.get_me()
+        chat = await ctx.bot.get_chat(channel)
+        member = await ctx.bot.get_chat_member(chat.id, bot_info.id)
+        if member.status not in ("administrator", "creator"):
+            status_note = (
+                f"\n\n⚠️ <b>Warning:</b> Bot found channel <i>{chat.title}</i>, but the bot is <b>NOT an Administrator</b>.\n"
+                f"👉 Please promote @{bot_info.username} to <b>Admin</b> in the channel so it can check user subscriptions!"
+            )
+        else:
+            status_note = f"\n\n✅ <b>Verified:</b> Bot is an Admin in <i>{chat.title}</i>."
+    except Exception as e:
+        logger.warning(f"Could not verify bot admin status in {channel}: {e}")
+        status_note = (
+            f"\n\n⚠️ <i>Note: Could not check bot status in channel ({e}).</i>\n"
+            "Please ensure the bot has been added as an <b>Admin</b> in the channel."
+        )
+
+    await set_setting("fsub_channel", channel)
+    await update.message.reply_text(
+        f"✅ <b>Force-Subscribe Channel Saved!</b>\n\n"
+        f"Channel: <code>{channel}</code>"
+        f"{status_note}\n\n"
+        "Users must now join this channel to use the bot.",
+        parse_mode="HTML"
+    )
+
+
+@admin_only
+async def channel_command(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    """View the currently active force-subscription channel."""
+    from utils.fsub import get_required_channel
+    channel = await get_required_channel()
+    if not channel:
+        await update.message.reply_text(
+            "📢 Force-Subscribe is currently <b>Disabled</b>.\n\n"
+            "Use <code>/setchannel @YourChannel</code> to enable it.",
+            parse_mode="HTML"
+        )
+    else:
+        await update.message.reply_text(
+            f"📢 Active Force-Subscribe Channel: <code>{channel}</code>\n\n"
+            "• To change: <code>/setchannel @NewChannel</code>\n"
+            "• To disable: <code>/setchannel off</code>",
+            parse_mode="HTML"
+        )
 
 
 # ─── Helper ───────────────────────────────────────────────────

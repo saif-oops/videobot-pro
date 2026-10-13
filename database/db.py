@@ -114,6 +114,12 @@ async def init_db():
                 created_at   TEXT DEFAULT (datetime('now'))
             )
         """)
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS settings (
+                key   TEXT PRIMARY KEY,
+                value TEXT
+            )
+        """)
         await db.execute("CREATE INDEX IF NOT EXISTS idx_video_cache_key ON video_cache(file_key)")
         await db.execute("CREATE INDEX IF NOT EXISTS idx_users_username ON users(username)")
         await db.execute("CREATE INDEX IF NOT EXISTS idx_downloads_user_id ON downloads(user_id)")

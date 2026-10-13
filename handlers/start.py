@@ -87,9 +87,9 @@ async def start_handler(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     from utils.fsub import is_subscribed, get_fsub_keyboard, get_fsub_message
     if not await is_subscribed(ctx.bot, user.id):
         await update.message.reply_text(
-            get_fsub_message(),
+            await get_fsub_message(),
             parse_mode="HTML",
-            reply_markup=get_fsub_keyboard(),
+            reply_markup=await get_fsub_keyboard(),
         )
         return
 
@@ -166,6 +166,18 @@ async def refer_handler(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     """Display referral dashboard with unique link, stats, and 1-tap share button."""
     user = update.effective_user
     await get_or_create_user(user.id, user.username or "", user.full_name)
+
+    from utils.fsub import is_subscribed, get_fsub_keyboard, get_fsub_message
+    if not await is_subscribed(ctx.bot, user.id):
+        target = update.message or (update.callback_query.message if update.callback_query else None)
+        if target:
+            await target.reply_text(
+                await get_fsub_message(),
+                parse_mode="HTML",
+                reply_markup=await get_fsub_keyboard(),
+            )
+        return
+
     stats = await get_referral_stats(user.id)
 
     try:
