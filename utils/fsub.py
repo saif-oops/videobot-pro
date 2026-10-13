@@ -17,7 +17,12 @@ async def get_active_fsub_channel() -> tuple[str, str]:
     if not ch:
         return "", ""
 
-    # Normalize URLs like https://t.me/MyChannel
+    # Normalize URLs like https://t.me/MyChannel or accidental @https://t.me/...
+    for prefix in ("@https://t.me/", "@http://t.me/"):
+        if ch.startswith(prefix):
+            ch = "@" + ch[len(prefix):]
+            break
+
     join_url = ""
     if ch.startswith("https://t.me/"):
         join_url = ch
@@ -25,6 +30,9 @@ async def get_active_fsub_channel() -> tuple[str, str]:
     elif ch.startswith("http://t.me/"):
         join_url = ch
         ch = "@" + ch.replace("http://t.me/", "").rstrip("/")
+    elif ch.startswith("t.me/"):
+        join_url = f"https://{ch}"
+        ch = "@" + ch.replace("t.me/", "").rstrip("/")
 
     if not join_url:
         db_url = await get_setting("fsub_url")

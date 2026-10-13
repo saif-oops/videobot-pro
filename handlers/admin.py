@@ -442,8 +442,18 @@ async def setchannel_command(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         )
         return
 
-    # Normalize channel username or ID
-    channel = arg if (arg.startswith("@") or arg.startswith("-")) else f"@{arg}"
+    # Normalize link/username/ID (e.g. https://t.me/Channel, t.me/Channel, @Channel, -100...)
+    clean_arg = arg
+    for prefix in ("@https://t.me/", "@http://t.me/", "https://t.me/", "http://t.me/", "t.me/"):
+        if clean_arg.startswith(prefix):
+            clean_arg = clean_arg[len(prefix):]
+            break
+    clean_arg = clean_arg.strip().rstrip("/")
+
+    if clean_arg.startswith("-"):
+        channel = clean_arg
+    else:
+        channel = clean_arg if clean_arg.startswith("@") else f"@{clean_arg}"
 
     # Verify if bot can access the channel and is admin
     status_note = ""
