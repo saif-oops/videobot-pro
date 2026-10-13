@@ -319,6 +319,15 @@ async def search_user(username: str) -> Optional[dict]:
 #  AUTO-DELETE SCHEDULE FUNCTIONS
 # ══════════════════════════════════════════════════════════
 
+async def get_auto_delete_minutes() -> int:
+    """Return active auto-delete minutes from DB settings or config fallback."""
+    val = await get_setting("auto_delete_minutes")
+    if val is not None and str(val).isdigit():
+        return int(val)
+    from config import AUTO_DELETE_MINUTES
+    return AUTO_DELETE_MINUTES
+
+
 async def schedule_message_deletion(chat_id: int, message_id: int, delay_seconds: int = 1800):
     """Schedule a message to be deleted after delay_seconds (default 30 min)."""
     async with aiosqlite.connect(DB_PATH) as db:

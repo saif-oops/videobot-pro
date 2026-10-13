@@ -13,7 +13,7 @@ from database.models import (
     get_stats, get_user, get_all_user_ids,
     grant_premium, revoke_premium, add_free_quota,
     ban_user, unban_user, search_user,
-    get_setting, set_setting,
+    get_setting, set_setting, get_auto_delete_minutes,
 )
 
 
@@ -39,6 +39,8 @@ async def admin_panel(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     from utils.fsub import get_required_channel
     channel = await get_required_channel()
     fsub_display = channel if channel else "Disabled"
+    del_mins = await get_auto_delete_minutes()
+    del_display = f"{del_mins} min" if del_mins > 0 else "Disabled"
 
     text = (
         "🛡️ *Admin Panel*\n\n"
@@ -49,11 +51,13 @@ async def admin_panel(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         f"📊 Total Downloads: *{stats['total_downloads']}*\n"
         f"💰 Total Payments: *{stats['total_paid']}*\n"
         f"🎁 Total Referrals: *{stats.get('total_referrals', 0)}*\n"
-        f"📢 Required Channel: *{fsub_display}*\n\n"
+        f"📢 Required Channel: *{fsub_display}*\n"
+        f"⏳ Auto-Delete: *{del_display}*\n\n"
         "━━━━━━━━━━━━━━━━━━━━\n"
         "⚙️ *Commands:*\n"
         "/setchannel @channel — Set required channel (or 'off')\n"
         "/channel — Check current required channel\n"
+        "/autodelete [mins] — Set auto-delete timer (e.g. 1, 30, 'off')\n"
         "/grant @username [days] — Give premium (default 30 days)\n"
         "/revoke @username — Remove premium\n"
         "/addquota @username 5 — Add free uses\n"
@@ -503,6 +507,45 @@ async def channel_command(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
             "• To disable: <code>/setchannel off</code>",
             parse_mode="HTML"
         )
+
+
+# ─── /autodelete ──────────────────────────────────────────────
+
+@admin_only
+async def autodelete_command(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    """Set or inspect the auto-delete timer for sent videos and cards."""
+    args = ctx.args
+    if not args:
+        current = await get_auto_delete_minutes()
+        timer_str = f"{current} minutes" if current > 0 else "Disabled"
+        msg = (
+            f"⏳ <b>Auto-Delete Timer:</b> <code>{timer_str}</code>\n\n"
+            "<b>Usage:</b>\n"
+            "• <code>/autodelete 1</code> — Set to 1 minute (fast test!)\n"
+            "• <code>/autodelete 30</code> — Standard 30-minute timer\n"
+            "• <code>/autodelete off</code> — Keep videos permanently\n\n"
+            "ℹ️ <i>Telegram limitation: Bots can auto-delete the videos, cards, and buttons THEY send. Telegram does not allow bots to delete user-typed messages in 1-on-1 private chats.</i>"
+        )
+        await update.message.reply_text(msg, parse_mode="HTML")
+        return
+
+    val = args[0].strip().lower()
+    if val in ("off", "none", "disable", "disabled", "0"):
+        await set_setting("auto_delete_minutes", "0")
+        await update.message.reply_text("✅ <b>Auto-Delete Disabled!</b> Videos will no longer be deleted automatically.", parse_mode="HTML")
+        return
+
+    if not val.isdigit() or int(val) < 1:
+        await update.message.reply_text("❌ Please specify minutes as a positive number (e.g. <code>/autodelete 1</code> or <code>/autodelete 30</code>).", parse_mode="HTML")
+        return
+
+    mins = int(val)
+    await set_setting("auto_delete_minutes", str(mins))
+    await update.message.reply_text(
+        f"✅ <b>Auto-Delete Timer Updated!</b>\n\n"
+        f"Videos and cards will now automatically disappear after <b>{mins} minute{'s' if mins > 1 else ''}</b>.",
+        parse_mode="HTML"
+    )
 
 
 # ─── Helper ───────────────────────────────────────────────────

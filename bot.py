@@ -57,7 +57,7 @@ from handlers.admin import (
     admin_panel, stats_command, grant_command, revoke_command,
     addquota_command, ban_command, unban_command,
     lookup_command, broadcast_command, backup_command, restore_command,
-    setchannel_command, channel_command,
+    setchannel_command, channel_command, autodelete_command,
 )
 
 logging.basicConfig(
@@ -98,6 +98,7 @@ def build_ptb_app() -> Application:
     app.add_handler(CommandHandler("stats",      stats_command))
     app.add_handler(CommandHandler("setchannel", setchannel_command))
     app.add_handler(CommandHandler("channel",    channel_command))
+    app.add_handler(CommandHandler("autodelete", autodelete_command))
     app.add_handler(CommandHandler("grant",      grant_command))
     app.add_handler(CommandHandler("revoke",     revoke_command))
     app.add_handler(CommandHandler("addquota",   addquota_command))

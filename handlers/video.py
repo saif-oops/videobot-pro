@@ -24,8 +24,8 @@ from database.models import (
     get_or_create_user, get_user, can_use,
     decrement_free_uses, increment_total_uses, log_download,
     schedule_message_deletion, get_cached_video, save_cached_video,
+    get_auto_delete_minutes,
 )
-from config import AUTO_DELETE_MINUTES
 from utils.downloader import (
     detect_platform, extract_url, get_video_info, download_video,
     get_canonical_file_key,
@@ -161,9 +161,10 @@ async def link_handler(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
             card_msg = await msg.reply_text(text, parse_mode="HTML", reply_markup=keyboard)
 
     # Automatically schedule the unlocked card for deletion
-    if card_msg and AUTO_DELETE_MINUTES > 0:
+    auto_del_mins = await get_auto_delete_minutes()
+    if card_msg and auto_del_mins > 0:
         try:
-            await schedule_message_deletion(msg.chat_id, card_msg.message_id, AUTO_DELETE_MINUTES * 60)
+            await schedule_message_deletion(msg.chat_id, card_msg.message_id, auto_del_mins * 60)
         except Exception as de:
             logger.warning(f"Could not schedule card deletion: {de}")
 
@@ -290,6 +291,7 @@ async def _handle_download(query, ctx, url: str, info: dict,
     title = info.get("title") or "Video"
     esc_title = html.escape(title[:60])
     file_key = info.get("file_key") or get_canonical_file_key(url)
+    auto_del_mins = await get_auto_delete_minutes()
 
     # ── 1. Check Instant Telegram file_id Cache (< 0.5s) ──
     if action == "play":
@@ -306,8 +308,8 @@ async def _handle_download(query, ctx, url: str, info: dict,
                         bot_uname = "Tera_Player_Bot"
 
                 auto_del_note = ""
-                if AUTO_DELETE_MINUTES > 0:
-                    auto_del_note = f"\n⏳ <i>This video will auto-delete in {AUTO_DELETE_MINUTES} minutes.</i>\n"
+                if auto_del_mins > 0:
+                    auto_del_note = f"\n⏳ <i>This video will auto-delete in {auto_del_mins} minutes.</i>\n"
 
                 cached_size_mb = (cached.get("file_size") or 0) / (1024 ** 2)
                 size_str = f"📦 Size: <b>{cached_size_mb:.1f} MB</b>\n" if cached_size_mb > 0 else ""
@@ -328,8 +330,8 @@ async def _handle_download(query, ctx, url: str, info: dict,
                 )
 
                 # Schedule auto-delete
-                if AUTO_DELETE_MINUTES > 0 and sent_msg:
-                    delay_sec = AUTO_DELETE_MINUTES * 60
+                if auto_del_mins > 0 and sent_msg:
+                    delay_sec = auto_del_mins * 60
                     await schedule_message_deletion(chat_id, sent_msg.message_id, delay_sec)
                     if query and getattr(query, "message", None):
                         await schedule_message_deletion(chat_id, query.message.message_id, delay_sec)
@@ -386,8 +388,8 @@ async def _handle_download(query, ctx, url: str, info: dict,
                         bot_uname = "Tera_Player_Bot"
 
                 auto_del_note = ""
-                if AUTO_DELETE_MINUTES > 0:
-                    auto_del_note = f"\n⏳ <i>This video will auto-delete in {AUTO_DELETE_MINUTES} minutes.</i>\n"
+                if auto_del_mins > 0:
+                    auto_del_note = f"\n⏳ <i>This video will auto-delete in {auto_del_mins} minutes.</i>\n"
 
                 caption = (
                     f"🎬 <b>{esc_title}</b>\n"
@@ -422,8 +424,8 @@ async def _handle_download(query, ctx, url: str, info: dict,
                 await progress_msg.delete()
 
                 # Schedule auto-delete
-                if AUTO_DELETE_MINUTES > 0 and sent_msg:
-                    delay_sec = AUTO_DELETE_MINUTES * 60
+                if auto_del_mins > 0 and sent_msg:
+                    delay_sec = auto_del_mins * 60
                     await schedule_message_deletion(chat_id, sent_msg.message_id, delay_sec)
                     if query and getattr(query, "message", None):
                         await schedule_message_deletion(chat_id, query.message.message_id, delay_sec)
@@ -485,8 +487,8 @@ async def _handle_download(query, ctx, url: str, info: dict,
             )
 
             # Schedule auto-delete
-            if AUTO_DELETE_MINUTES > 0 and progress_msg:
-                delay_sec = AUTO_DELETE_MINUTES * 60
+            if auto_del_mins > 0 and progress_msg:
+                delay_sec = auto_del_mins * 60
                 await schedule_message_deletion(chat_id, progress_msg.message_id, delay_sec)
 
             # Decrement quota & log
@@ -508,8 +510,8 @@ async def _handle_download(query, ctx, url: str, info: dict,
                 bot_uname = "Tera_Player_Bot"
 
         auto_del_note = ""
-        if AUTO_DELETE_MINUTES > 0:
-            auto_del_note = f"\n⏳ <i>This video will auto-delete in {AUTO_DELETE_MINUTES} minutes.</i>\n"
+        if auto_del_mins > 0:
+            auto_del_note = f"\n⏳ <i>This video will auto-delete in {auto_del_mins} minutes.</i>\n"
 
         caption = (
             f"🎬 <b>{esc_title}</b>\n"
@@ -564,9 +566,9 @@ async def _handle_download(query, ctx, url: str, info: dict,
             except Exception as ce:
                 logger.warning(f"Could not cache file_id: {ce}")
 
-        # Schedule auto-delete after AUTO_DELETE_MINUTES
-        if AUTO_DELETE_MINUTES > 0 and sent_msg:
-            delay_sec = AUTO_DELETE_MINUTES * 60
+        # Schedule auto-delete after auto_del_mins
+        if auto_del_mins > 0 and sent_msg:
+            delay_sec = auto_del_mins * 60
             try:
                 await schedule_message_deletion(chat_id, sent_msg.message_id, delay_sec)
                 if query and getattr(query, "message", None):
