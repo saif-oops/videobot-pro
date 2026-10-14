@@ -173,6 +173,17 @@
     adContinueBtn.className = 'btn btn-continue disabled';
     adContinueBtn.disabled = true;
 
+    // Trigger Monetag live ad SDK
+    try {
+      if (typeof window.show_12032731 === 'function') {
+        window.show_12032731().catch((err) => {
+          console.log('Monetag ad callback:', err);
+        });
+      }
+    } catch (e) {
+      console.warn('Monetag trigger error:', e);
+    }
+
     let secondsLeft = 10;
     adTimerText.textContent = `00:${String(secondsLeft).padStart(2, '0')}`;
     adContinueBtnText.textContent = `Please wait (${secondsLeft}s)…`;
