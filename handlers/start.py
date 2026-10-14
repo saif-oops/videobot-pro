@@ -23,6 +23,7 @@ START_TEXT = (
     "📌 <b>How to use:</b>\n"
     "  Just send me any Terabox or DiskWala link!\n\n"
     "⚙️ <b>Commands:</b>\n"
+    "  /player — Open Web Player & Downloader ⚡\n"
     "  /start — Show this message\n"
     "  /refer — Invite friends & earn free uses\n"
     "  /status — Your account status\n"
@@ -267,3 +268,47 @@ async def refresh_refer_callback(update: Update, ctx: ContextTypes.DEFAULT_TYPE)
         await query.answer("✅ Stats refreshed!")
     except Exception:
         await query.answer("Stats are already up to date!")
+
+
+async def player_command(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    """Handle /player command to open WebApp."""
+    user = update.effective_user
+    if not update.message:
+        return
+
+    from utils.fsub import is_subscribed, get_fsub_keyboard, get_fsub_message
+    if not await is_subscribed(ctx.bot, user.id):
+        await update.message.reply_text(
+            await get_fsub_message(),
+            parse_mode="HTML",
+            reply_markup=await get_fsub_keyboard(),
+        )
+        return
+
+    from config import TERABOX_WEBAPP_URL
+    from urllib.parse import quote
+    from telegram import InlineKeyboardButton, InlineKeyboardMarkup, WebAppInfo
+
+    target_url = ctx.args[0].strip() if (ctx.args and len(ctx.args) > 0) else ""
+    if target_url:
+        app_url = f"{TERABOX_WEBAPP_URL}?url={quote(target_url, safe='')}"
+        btn_text = "🎬 Stream Video in Mini App ⚡"
+        msg_text = (
+            "🎬 <b>TeraBox Video Player</b>\n\n"
+            f"🔗 <b>Target:</b> <code>{html.escape(target_url[:60])}</code>\n\n"
+            "Tap the button below to stream and download this video in the Mini App!"
+        )
+    else:
+        app_url = TERABOX_WEBAPP_URL
+        btn_text = "🚀 Open Video Player & Downloader ⚡"
+        msg_text = (
+            "🎬 <b>TeraBox & DiskWala Video Player</b>\n\n"
+            "Stream and download videos at high speed with no wait times!\n\n"
+            "Tap the button below to launch the Mini App:"
+        )
+
+    keyboard = InlineKeyboardMarkup([
+        [InlineKeyboardButton(btn_text, web_app=WebAppInfo(url=app_url))],
+        [InlineKeyboardButton("👑 Buy VIP (₹99 / No Ads)", callback_data="goto_premium")],
+    ])
+    await update.message.reply_text(msg_text, parse_mode="HTML", reply_markup=keyboard)

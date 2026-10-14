@@ -48,7 +48,7 @@ from telegram.ext import (
 
 from config import BOT_TOKEN, PORT, WEBHOOK_URL, ALLOWED_STREAM_DOMAINS
 from database.db import init_db
-from handlers.start import start_handler, help_handler, status_handler, refer_handler
+from handlers.start import start_handler, help_handler, status_handler, refer_handler, player_command
 from handlers.video import link_handler, callback_handler
 from handlers.payment import (
     premium_command, verify_razorpay_webhook, process_payment_webhook,
@@ -73,6 +73,31 @@ _ptb_app: Application | None = None
 STATIC_DIR = os.path.join(os.path.dirname(__file__), "web", "static")
 
 
+async def _bot_post_init(application: Application):
+    """Set up Telegram chat menu button and commands menu."""
+    from telegram import MenuButtonWebApp, WebAppInfo, BotCommand
+    from config import TERABOX_WEBAPP_URL
+    try:
+        if TERABOX_WEBAPP_URL and TERABOX_WEBAPP_URL.startswith("https://"):
+            await application.bot.set_chat_menu_button(
+                menu_button=MenuButtonWebApp(
+                    text="🎬 Player",
+                    web_app=WebAppInfo(url=TERABOX_WEBAPP_URL)
+                )
+            )
+        await application.bot.set_my_commands([
+            BotCommand("start", "Start the bot"),
+            BotCommand("player", "Open TeraBox Video Player & Downloader"),
+            BotCommand("refer", "Invite friends & earn free uses"),
+            BotCommand("premium", "Buy VIP (₹99 / Month)"),
+            BotCommand("status", "Check your account status"),
+            BotCommand("help", "Help & FAQ"),
+        ])
+        logger.info("Bot commands and WebApp chat menu button configured")
+    except Exception as e:
+        logger.warning(f"Could not configure chat menu button or commands: {e}")
+
+
 # ─── Build PTB Application ────────────────────────────────────
 
 def build_ptb_app() -> Application:
@@ -83,9 +108,10 @@ def build_ptb_app() -> Application:
         read_timeout=300.0,
         write_timeout=300.0,
     )
-    app = Application.builder().token(BOT_TOKEN).request(request).build()
+    app = Application.builder().token(BOT_TOKEN).request(request).post_init(_bot_post_init).build()
 
     # ── User commands ──
+    app.add_handler(CommandHandler("player",  player_command))
     app.add_handler(CommandHandler("start",   start_handler))
     app.add_handler(CommandHandler("help",    help_handler))
     app.add_handler(CommandHandler("status",  status_handler))
