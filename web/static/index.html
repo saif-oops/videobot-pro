@@ -181,7 +181,7 @@
 
     .search-bar-row {
       display: flex;
-      gap: 8px;
+      gap: 10px;
       align-items: stretch;
       width: 100%;
     }
@@ -189,12 +189,13 @@
     .input-field-wrap {
       flex: 1 1 0%;
       min-width: 0;
+      height: 50px;
       display: flex;
       align-items: center;
       background: var(--bg-input);
       border: 1.5px solid rgba(255, 255, 255, 0.12);
       border-radius: var(--radius-md);
-      padding: 2px 6px 2px 12px;
+      padding: 0 16px;
       transition: var(--transition);
       box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
     }
@@ -206,55 +207,35 @@
     }
 
     .input-icon {
-      font-size: 14px;
-      opacity: 0.6;
-      margin-right: 8px;
+      font-size: 15px;
+      opacity: 0.65;
+      margin-right: 10px;
       flex-shrink: 0;
     }
 
     .input-field-wrap input {
       flex: 1 1 0%;
       min-width: 0 !important;
-      font-size: 13.5px;
+      font-size: 14px;
       font-weight: 500;
-      padding: 10px 0;
+      padding: 12px 0;
       color: #ffffff !important;
-    }
-
-    .btn-paste {
-      display: inline-flex;
-      align-items: center;
-      gap: 4px;
-      background: rgba(255, 255, 255, 0.08) !important;
-      border: 1px solid rgba(255, 255, 255, 0.12) !important;
-      color: #cbd5e1 !important;
-      border-radius: var(--radius-sm);
-      padding: 6px 10px;
-      font-size: 12px;
-      font-weight: 600;
-      cursor: pointer;
-      flex-shrink: 0;
-      transition: var(--transition);
-    }
-
-    .btn-paste:hover {
-      background: rgba(255, 255, 255, 0.15) !important;
-      color: #ffffff !important;
-      transform: translateY(-1px);
     }
 
     .btn-fetch {
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      gap: 6px;
+      gap: 7px;
+      height: 50px;
       background: var(--brand-gradient) !important;
       color: #ffffff !important;
       border: none !important;
       border-radius: var(--radius-md);
-      padding: 0 18px;
-      font-size: 13.5px;
-      font-weight: 700;
+      padding: 0 24px;
+      font-size: 15.5px;
+      font-weight: 800;
+      letter-spacing: 0.3px;
       cursor: pointer;
       white-space: nowrap;
       flex-shrink: 0;
@@ -279,7 +260,7 @@
     }
 
     .btn-bolt {
-      font-size: 13px;
+      font-size: 15px;
     }
 
     /* Loading Spinner */
@@ -912,24 +893,20 @@
           <input
             type="url"
             id="urlInput"
-            placeholder="Paste TeraBox or DiskWala link…"
+            placeholder="Paste TeraBox or DiskWala link here…"
             autocomplete="off"
             spellcheck="false"
           >
-          <button type="button" class="btn-paste" id="pasteBtn" title="Paste from clipboard">
-            <span class="paste-icon">📋</span>
-            <span class="paste-label">Paste</span>
-          </button>
         </div>
         <button
           type="button"
           class="btn-fetch"
           id="fetchBtn"
-          style="background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 50%, #d946ef 100%) !important; color: #ffffff !important;"
+          style="background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 50%, #d946ef 100%) !important; color: #ffffff !important; font-size: 15.5px !important; font-weight: 800 !important; height: 50px !important; padding: 0 24px !important;"
         >
           <span class="spinner" id="fetchSpinner"></span>
           <span id="fetchBtnText">Download</span>
-          <span class="btn-bolt">⚡</span>
+          <span class="btn-bolt" style="font-size: 15px !important;">⚡</span>
         </button>
       </div>
     </section>

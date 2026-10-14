@@ -246,20 +246,22 @@
     }
   });
 
-  // ─── Paste Button ──────────────────────────────────────────
-  pasteBtn.addEventListener('click', async () => {
-    try {
-      const text = await navigator.clipboard.readText();
-      if (text) {
-        urlInput.value = text.trim();
+  // ─── Paste Button (Optional) ───────────────────────────────
+  if (pasteBtn) {
+    pasteBtn.addEventListener('click', async () => {
+      try {
+        const text = await navigator.clipboard.readText();
+        if (text) {
+          urlInput.value = text.trim();
+          urlInput.focus();
+          if (tg && tg.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
+        }
+      } catch {
         urlInput.focus();
-        if (tg && tg.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
+        urlInput.select();
       }
-    } catch {
-      urlInput.focus();
-      urlInput.select();
-    }
-  });
+    });
+  }
 
   // ─── Fetch / Download Button ───────────────────────────────
   fetchBtn.addEventListener('click', () => {
