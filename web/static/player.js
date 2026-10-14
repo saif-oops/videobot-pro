@@ -167,8 +167,34 @@
       return;
     }
 
-    // Free users: Trigger 10-second countdown
     pendingAction = action;
+
+    // 1. Try native Monetag Rewarded Interstitial SDK first
+    if (typeof window.show_12032731 === 'function') {
+      try {
+        window.show_12032731().then(() => {
+          // Monetag Ad viewed successfully!
+          if (tg && tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
+          if (typeof pendingAction === 'function') {
+            const act = pendingAction;
+            pendingAction = null;
+            act();
+          }
+        }).catch((err) => {
+          console.warn('Monetag ad dismissed or failed, using fallback:', err);
+          showFallbackAdModal();
+        });
+        return;
+      } catch (e) {
+        console.warn('Monetag call exception:', e);
+      }
+    }
+
+    // 2. Fallback: Show our built-in 10-second countdown modal if SDK is offline/blocked
+    showFallbackAdModal();
+  }
+
+  function showFallbackAdModal() {
     adOverlay.style.display = 'flex';
     adContinueBtn.className = 'btn btn-continue disabled';
     adContinueBtn.disabled = true;
@@ -187,20 +213,6 @@
       }
     }
 
-    // Trigger Monetag live ad SDK
-    try {
-      if (typeof window.show_12032731 === 'function') {
-        window.show_12032731().then(() => {
-          // Monetag ad finished! Unlock reward immediately
-          unlockReward();
-        }).catch((err) => {
-          console.log('Monetag ad callback:', err);
-        });
-      }
-    } catch (e) {
-      console.warn('Monetag trigger error:', e);
-    }
-
     let secondsLeft = 10;
     adTimerText.textContent = `00:${String(secondsLeft).padStart(2, '0')}`;
     adContinueBtnText.textContent = `Please wait (${secondsLeft}s)…`;
@@ -217,6 +229,12 @@
       }
     }, 1000);
   }
+
+  adCloseBtn.addEventListener('click', () => {
+    if (adInterval) clearInterval(adInterval);
+    adOverlay.style.display = 'none';
+    pendingAction = null;
+  });
 
   adContinueBtn.addEventListener('click', () => {
     if (adContinueBtn.disabled) return;

@@ -6,6 +6,9 @@
   <title>TeraBox Video Downloader — Mini App</title>
   <meta name="description" content="Stream and download TeraBox & DiskWala videos instantly. No wait times, VIP high speed playback.">
   <link rel="icon" type="image/jpeg" href="/static/logo.jpg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/static/style.css">
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <!-- Monetag Telegram Mini App SDK -->
@@ -14,50 +17,54 @@
 <body>
   <div class="app-container">
 
-    <!-- Header -->
+    <!-- Header Hero Section (Centered & Modern) -->
     <header class="app-header">
-      <div class="header-top">
-        <div class="logo">
-          <img src="/static/logo.jpg" alt="VideoBot Pro" class="logo-img">
-          <div class="logo-title-group">
-            <span class="logo-text">TeraBox <span class="gradient-text">Downloader</span></span>
-            <span class="subtitle">Fast streaming &amp; high-speed downloads</span>
-          </div>
-        </div>
+      <div class="logo-wrapper">
+        <img src="/static/logo.jpg" alt="VideoBot Pro" class="logo-img">
+      </div>
+      <h1 class="hero-title">TeraBox <span class="gradient-text">Video Downloader</span></h1>
+      <p class="hero-subtitle">Fast streaming &amp; high-speed direct downloads</p>
+      <div class="tier-pill-wrapper">
         <div class="user-tier-pill" id="userTierPill">
           <span class="tier-icon" id="tierIcon">🎫</span>
-          <span class="tier-text" id="tierText">Free User</span>
+          <span class="tier-text" id="tierText">Free User (5 Left)</span>
         </div>
       </div>
     </header>
 
-    <!-- URL Input Section -->
+    <!-- Search / URL Input Section -->
     <section class="input-section" id="inputSection">
-      <div class="input-box-container">
-        <input
-          type="url"
-          id="urlInput"
-          placeholder="Paste TeraBox or DiskWala link…"
-          autocomplete="off"
-          spellcheck="false"
-        >
-        <button class="btn-paste" id="pasteBtn" title="Paste link">📋</button>
-        <button class="btn-fetch" id="fetchBtn">
+      <div class="search-bar-row">
+        <div class="input-field-wrap">
+          <span class="input-icon">🔗</span>
+          <input
+            type="url"
+            id="urlInput"
+            placeholder="Paste TeraBox or DiskWala link…"
+            autocomplete="off"
+            spellcheck="false"
+          >
+          <button type="button" class="btn-paste" id="pasteBtn" title="Paste from clipboard">
+            <span class="paste-icon">📋</span>
+            <span class="paste-label">Paste</span>
+          </button>
+        </div>
+        <button type="button" class="btn-fetch" id="fetchBtn">
           <span class="spinner" id="fetchSpinner"></span>
           <span id="fetchBtnText">Download</span>
+          <span class="btn-bolt">⚡</span>
         </button>
       </div>
     </section>
 
-    <!-- Status Bar -->
+    <!-- Status Notification Bar -->
     <div class="status-bar" id="statusBar">
       <span id="statusIcon"></span>
       <span id="statusText"></span>
     </div>
 
-    <!-- Player Card -->
+    <!-- Video Player Card (Appears after fetching) -->
     <section class="player-card" id="playerCard">
-      <!-- Video Player -->
       <div class="video-wrapper" id="videoWrapper">
         <video
           id="videoPlayer"
@@ -71,27 +78,24 @@
         </div>
       </div>
 
-      <!-- Video Info -->
       <div class="video-info">
-        <h1 class="video-title" id="videoTitle">Loading…</h1>
+        <h2 class="video-title" id="videoTitle">Video Title</h2>
         <div class="video-meta" id="videoMeta">
-          <!-- Badges populated by JS -->
+          <!-- Badges populated dynamically by JS -->
         </div>
 
-        <!-- Action Buttons -->
         <div class="action-buttons">
           <button class="btn btn-download" id="downloadBtn">
             ⬇️ Download Video
           </button>
           <button class="btn btn-secondary" id="pipBtn" title="Picture-in-Picture">
-            🖼
+            🖼 PiP
           </button>
           <button class="btn btn-secondary" id="fullscreenBtn" title="Fullscreen">
             ⛶
           </button>
         </div>
 
-        <!-- Download Progress -->
         <div class="download-progress" id="downloadProgress">
           <div class="progress-track">
             <div class="progress-fill" id="progressFill"></div>
@@ -101,30 +105,34 @@
       </div>
     </section>
 
-    <!-- Cross-Promotion Network ("Try Our Other Downloaders") -->
+    <!-- Cross-Promotion Network ("TRY OUR OTHER DOWNLOADERS") -->
     <section class="network-card">
       <div class="network-header">
-        <span class="sparkle">✨</span>
-        <span class="network-title">TRY OUR OTHER DOWNLOADERS</span>
-        <span class="sparkle">✨</span>
+        <div class="network-title-row">
+          <span class="sparkle-gold">✨</span>
+          <span class="network-title">TRY OUR OTHER DOWNLOADERS</span>
+          <span class="sparkle-gold">✨</span>
+        </div>
+        <div class="network-sub-sparkle">✨</div>
       </div>
+
       <div class="network-buttons">
-        <button class="network-btn btn-neon-blue" id="btnOfficialChannel">
+        <button class="network-btn" id="btnOfficialChannel">
           <span class="btn-icon">📢</span>
           <span class="btn-text">Official Updates Channel</span>
           <span class="btn-arrow">↗</span>
         </button>
-        <button class="network-btn btn-neon-purple" id="btnDiskwala">
+        <button class="network-btn" id="btnDiskwala">
           <span class="btn-icon">🎬</span>
           <span class="btn-text">DiskWala Video Downloader</span>
           <span class="btn-arrow">⚡</span>
         </button>
-        <button class="network-btn btn-neon-cyan" id="btnRefer">
+        <button class="network-btn" id="btnRefer">
           <span class="btn-icon">🎁</span>
           <span class="btn-text">Refer Friends — Earn Free VIP</span>
           <span class="btn-arrow">➜</span>
         </button>
-        <button class="network-btn btn-neon-gold" id="btnBuyVip">
+        <button class="network-btn btn-vip-highlight" id="btnBuyVip">
           <span class="btn-icon">👑</span>
           <span class="btn-text">Get Monthly VIP (₹99 / No Ads)</span>
           <span class="btn-arrow">🔥</span>
@@ -134,17 +142,16 @@
 
     <!-- Footer -->
     <footer class="powered-by">
-      Powered by <a href="#" id="botFooterLink" target="_blank">@VideoBot_Pro</a>
+      Powered by <a href="#" id="botFooterLink" target="_blank">@Tera_Player_Bot</a>
     </footer>
 
   </div>
 
   <!-- ══════════════════════════════════════════════════════════ -->
-  <!-- 10-SECOND MONETAG AD INTERSTITIAL MODAL -->
+  <!-- 10-SECOND AD INTERSTITIAL MODAL (FALLBACK / SYSTEM) -->
   <!-- ══════════════════════════════════════════════════════════ -->
   <div class="ad-overlay" id="adOverlay" style="display: none;">
     <div class="ad-modal">
-      <!-- Top Bar with 10s Countdown Timer -->
       <div class="ad-top-bar">
         <div class="ad-timer-pill" id="adTimerPill">
           ⏱️ <span id="adTimerText">00:10</span>
@@ -152,17 +159,15 @@
         <button class="ad-close-btn" id="adCloseBtn" title="Close" style="display: none;">✕</button>
       </div>
 
-      <!-- Monetag Ad Slot -->
       <div class="ad-content-box" id="adContentBox">
         <div class="ad-banner-card" id="adBannerCard">
           <div class="ad-crown">👑</div>
           <div class="ad-badge-jackpot">JACKPOT</div>
           <h3 class="ad-headline">🤩 WOW! You're LUCKY</h3>
-          <p class="ad-subheadline">💰 💰 💰 Check the special BONUS you got 🔄</p>
+          <p class="ad-subheadline">💰 Check the special BONUS you got 🔄</p>
           <div class="ad-tag">Ad</div>
         </div>
 
-        <!-- Monetag dynamic SDK slot (if admin configured /setad tag) -->
         <div id="monetagSlotContainer" style="display: none;"></div>
 
         <div class="ad-source-pill">
@@ -174,7 +179,6 @@
         </div>
       </div>
 
-      <!-- VIP Upsell Bypass Card -->
       <div class="ad-vip-card" id="adVipCard">
         <div class="vip-info-col">
           <span class="vip-sparkle-icon">👑</span>
@@ -183,10 +187,9 @@
             <p>Get Unlimited Instant VIP Downloads — ₹99/Month</p>
           </div>
         </div>
-        <button class="btn btn-vip-cta" id="adVipCtaBtn">⚡ Skip Ads (₹99)</button>
+        <button class="btn-vip-cta" id="adVipCtaBtn">⚡ Skip Ads (₹99)</button>
       </div>
 
-      <!-- Continue Action Button -->
       <button class="btn btn-continue disabled" id="adContinueBtn" disabled>
         <span class="ad-btn-icon">⏳</span>
         <span id="adContinueBtnText">Please wait (10s)…</span>
