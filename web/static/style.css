@@ -92,99 +92,170 @@ body::after {
 
 /* ─── Header ────────────────────────────────────────────── */
 .app-header {
-  text-align: center;
-  padding: 20px 0 16px;
+  padding: 12px 0 16px;
 }
 
-.app-header .logo {
-  display: inline-flex;
+.header-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.logo {
+  display: flex;
   align-items: center;
   gap: 10px;
-  font-size: 22px;
+}
+
+.logo-img {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  object-fit: cover;
+  box-shadow: 0 4px 15px rgba(59, 130, 246, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  flex-shrink: 0;
+}
+
+.logo-title-group {
+  display: flex;
+  flex-direction: column;
+}
+
+.logo-text {
+  font-size: 17px;
   font-weight: 800;
+  color: #fff;
+  letter-spacing: -0.3px;
+  line-height: 1.2;
+}
+
+.subtitle {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+.gradient-text {
   background: var(--gradient-brand);
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;
-  letter-spacing: -0.5px;
 }
 
-.app-header .logo .logo-icon {
-  width: 36px;
-  height: 36px;
-  background: var(--gradient-brand);
-  border-radius: var(--radius-sm);
+.user-tier-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 700;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--border-glass);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.user-tier-pill.vip {
+  background: linear-gradient(135deg, rgba(234, 179, 8, 0.2), rgba(245, 158, 11, 0.1));
+  border-color: rgba(234, 179, 8, 0.4);
+  color: #fbbf24;
+}
+
+/* ─── URL Input Bar (Sleek Single Glass Container) ───────── */
+.input-section {
+  margin-bottom: 20px;
+}
+
+.input-box-container {
+  display: flex;
+  align-items: center;
+  background: rgba(17, 24, 39, 0.85);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 14px;
+  padding: 5px 6px 5px 14px;
+  gap: 8px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.45), 0 0 20px rgba(59, 130, 246, 0.12);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.input-box-container:focus-within {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.25), 0 8px 32px rgba(0, 0, 0, 0.6);
+}
+
+.input-box-container input {
+  flex: 1 1 0%;
+  min-width: 0 !important; /* Prevents long URLs from pushing the download button off screen */
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--text-primary);
+  font-size: 14px;
+  font-family: inherit;
+  padding: 8px 0;
+}
+
+.input-box-container input::placeholder {
+  color: #64748b;
+  font-size: 13px;
+}
+
+.btn-paste {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 16px;
+  padding: 6px;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 18px;
-  -webkit-text-fill-color: white;
-  box-shadow: var(--shadow-glow);
+  transition: color 0.2s ease;
+  flex-shrink: 0;
 }
 
-.app-header .logo .logo-img {
-  width: 38px;
-  height: 38px;
-  border-radius: var(--radius-sm);
-  object-fit: cover;
-  box-shadow: 0 0 15px rgba(6, 182, 212, 0.4), 0 0 30px rgba(59, 130, 246, 0.2);
-  border: 1px solid rgba(255, 255, 255, 0.15);
+.btn-paste:hover {
+  color: #fff;
 }
 
-.app-header .subtitle {
+.btn-fetch {
+  background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  padding: 9px 16px;
   font-size: 13px;
-  color: var(--text-muted);
-  margin-top: 4px;
-  font-weight: 400;
-}
-
-/* ─── URL Input Section ─────────────────────────────────── */
-.input-section {
-  background: var(--bg-card);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border: 1px solid var(--border-glass);
-  border-radius: var(--radius-lg);
-  padding: 20px;
-  margin-bottom: 16px;
-  box-shadow: var(--shadow-card);
-}
-
-.input-label {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--text-secondary);
-  margin-bottom: 10px;
-  display: flex;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+  box-shadow: 0 4px 15px rgba(59, 130, 246, 0.35);
+  transition: transform 0.15s ease, filter 0.15s ease;
+  display: inline-flex;
   align-items: center;
   gap: 6px;
 }
 
-.input-wrapper {
-  display: flex;
-  gap: 8px;
+.btn-fetch:hover {
+  filter: brightness(1.1);
+  transform: translateY(-1px);
 }
 
-.input-wrapper input {
-  flex: 1;
-  background: var(--bg-glass);
-  border: 1px solid var(--border-glass);
-  border-radius: var(--radius-md);
-  padding: 12px 14px;
-  color: var(--text-primary);
-  font-size: 14px;
-  font-family: 'Inter', sans-serif;
-  outline: none;
-  transition: var(--transition);
+.btn-fetch:active {
+  transform: translateY(0);
 }
 
-.input-wrapper input::placeholder {
-  color: var(--text-muted);
-}
-
-.input-wrapper input:focus {
-  border-color: var(--accent-blue);
-  box-shadow: 0 0 0 3px var(--accent-blue-glow);
+.btn-fetch:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
 }
 
 .btn {
@@ -546,65 +617,6 @@ body::after {
   color: var(--text-muted);
   margin-top: 6px;
   text-align: center;
-}
-
-/* ─── Header Tier Pill ──────────────────────────────────── */
-.header-top {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 4px;
-}
-
-.logo-text {
-  font-size: 18px;
-  font-weight: 800;
-  letter-spacing: -0.5px;
-}
-
-.gradient-text {
-  background: var(--gradient-brand);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-}
-
-.user-tier-pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 4px 10px;
-  border-radius: 20px;
-  font-size: 11px;
-  font-weight: 700;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid var(--border-glass);
-}
-
-.user-tier-pill.vip {
-  background: linear-gradient(135deg, rgba(234, 179, 8, 0.2), rgba(245, 158, 11, 0.1));
-  border-color: rgba(234, 179, 8, 0.4);
-  color: #fbbf24;
-}
-
-/* ─── Compact Input Box ─────────────────────────────────── */
-.input-box-container {
-  display: flex;
-  gap: 8px;
-  align-items: stretch;
-}
-
-.input-box-container .input-wrapper {
-  flex: 1;
-}
-
-.input-box-container .btn-fetch {
-  width: auto;
-  min-width: 100px;
-  padding: 0 16px;
-  margin-top: 0;
-  white-space: nowrap;
-  font-weight: 700;
 }
 
 /* ─── Cross-Promotion Network Card ──────────────────────── */
