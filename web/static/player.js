@@ -173,10 +173,27 @@
     adContinueBtn.className = 'btn btn-continue disabled';
     adContinueBtn.disabled = true;
 
+    function unlockReward() {
+      if (adInterval) {
+        clearInterval(adInterval);
+        adInterval = null;
+      }
+      adTimerText.textContent = '00:00';
+      adContinueBtn.className = 'btn btn-continue active';
+      adContinueBtn.disabled = false;
+      adContinueBtnText.textContent = 'Continue to Download ✅';
+      if (tg && tg.HapticFeedback) {
+        tg.HapticFeedback.notificationOccurred('success');
+      }
+    }
+
     // Trigger Monetag live ad SDK
     try {
       if (typeof window.show_12032731 === 'function') {
-        window.show_12032731().catch((err) => {
+        window.show_12032731().then(() => {
+          // Monetag ad finished! Unlock reward immediately
+          unlockReward();
+        }).catch((err) => {
           console.log('Monetag ad callback:', err);
         });
       }
@@ -196,14 +213,7 @@
         adTimerText.textContent = `00:${String(secondsLeft).padStart(2, '0')}`;
         adContinueBtnText.textContent = `Please wait (${secondsLeft}s)…`;
       } else {
-        clearInterval(adInterval);
-        adTimerText.textContent = '00:00';
-        adContinueBtn.className = 'btn btn-continue active';
-        adContinueBtn.disabled = false;
-        adContinueBtnText.textContent = 'Continue to Download ✅';
-        if (tg && tg.HapticFeedback) {
-          tg.HapticFeedback.notificationOccurred('success');
-        }
+        unlockReward();
       }
     }, 1000);
   }
