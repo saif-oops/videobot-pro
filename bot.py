@@ -175,7 +175,7 @@ async def player_page(request: Request):
     try:
         with open(index_path, "r", encoding="utf-8") as f:
             content = f.read()
-        return HTMLResponse(content)
+        return HTMLResponse(content, headers={"Cache-Control": "no-cache, no-store, must-revalidate", "Pragma": "no-cache"})
     except Exception as e:
         return PlainTextResponse(f"Player load error: {e}", status_code=500)
 
@@ -202,7 +202,7 @@ async def static_file(request: Request):
     try:
         with open(safe_path, "rb") as f:
             content = f.read()
-        return Response(content, media_type=media_type, headers={"Cache-Control": "public, max-age=3600"})
+        return Response(content, media_type=media_type, headers={"Cache-Control": "no-cache, no-store, must-revalidate", "Pragma": "no-cache"})
     except Exception as e:
         return PlainTextResponse(f"Static file error: {e}", status_code=500)
 
