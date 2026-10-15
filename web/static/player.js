@@ -21,11 +21,17 @@
   const videoTitle       = document.getElementById('videoTitle');
   const videoMeta        = document.getElementById('videoMeta');
   const downloadBtn      = document.getElementById('downloadBtn');
+  const vdiskBtn         = document.getElementById('vdiskBtn');
   const pipBtn           = document.getElementById('pipBtn');
   const fullscreenBtn    = document.getElementById('fullscreenBtn');
   const downloadProgress = document.getElementById('downloadProgress');
   const progressFill     = document.getElementById('progressFill');
   const progressText     = document.getElementById('progressText');
+  const actionButtons    = document.getElementById('actionButtons');
+  const diskwalaActions  = document.getElementById('diskwalaActions');
+  const btnDiskwalaVPlayer = document.getElementById('btnDiskwalaVPlayer');
+  const btnDiskwalaApp   = document.getElementById('btnDiskwalaApp');
+  const btnDiskwalaCopy  = document.getElementById('btnDiskwalaCopy');
 
   // Ad Modal References
   const adOverlay        = document.getElementById('adOverlay');
@@ -287,6 +293,13 @@
     hideStatus();
     playerCard.classList.remove('active');
 
+    const dwMatch = url.match(/diskwala\.com\/(?:app|c)\/([a-zA-Z0-9]+)/i);
+    if (dwMatch) {
+      await fetchDiskwalaVideo(url, dwMatch[1]);
+      setFetching(false);
+      return;
+    }
+
     showStatus('loading', '🔍', 'Processing video link…');
 
     try {
@@ -318,9 +331,209 @@
     }
   }
 
+  // ─── DiskWala AppiCrypt Client Extractor ─────────────────────
+  async function fetchDiskwalaVideo(url, fileId) {
+    showStatus('loading', '🔐', 'Authenticating with DiskWala AppiCrypt…');
+    try {
+      let appicryptModule;
+      try {
+        appicryptModule = await import('/pkg/appicrypt-web-f-0_1_216.js');
+      } catch (e) {
+        appicryptModule = await import('https://www.diskwala.com/pkg/appicrypt-web-f-0_1_216.js');
+      }
+
+      // Fetch qt magic string
+      const qtResp = await fetch('/static/qt.txt');
+      const qt = (await qtResp.text()).trim();
+      await appicryptModule.setMagicFile(qt);
+
+      function Yt(e) {
+        if (null === e || void 0 === e) return "";
+        if ("object" !== typeof e) return JSON.stringify(e);
+        if (Array.isArray(e)) return `[${e.map(Yt).join(",")}]`;
+        return `{${Object.keys(e).sort().map(t => `${JSON.stringify(t)}:${Yt(e[t])}`).join(",")}}`;
+      }
+
+      const ts = Date.now().toString();
+      const urlPath = "/file/temp_info";
+      const bodyObj = { id: fileId };
+      const bodyStr = Yt(bodyObj);
+      const c = `POST ${urlPath} | params= | body=${bodyStr} | ts=${ts}`;
+      const u = new TextEncoder().encode(c);
+      const d = await crypto.subtle.digest("SHA-256", u);
+      const cryptogram = await appicryptModule.getCryptogram(new Uint8Array(d));
+
+      showStatus('loading', '🔍', 'Fetching DiskWala file details…');
+
+      const metaResp = await fetch(getApiBase() + '/api/diskwala_meta', {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: fileId,
+          appicrypt: cryptogram,
+          appicrypt_ts: ts
+        })
+      });
+
+      const metaData = await metaResp.json();
+      if (metaData && metaData.fileInfo) {
+        const fi = metaData.fileInfo;
+        const uploader = metaData.uploader || {};
+        const sizeBytes = fi.size || 0;
+        const sizeStr = (sizeBytes / (1024 * 1024)).toFixed(2) + ' MB';
+
+        const diskwalaInfo = {
+          title: fi.name || `DiskWala Media (${fileId})`,
+          filesize_str: sizeStr,
+          platform: 'diskwala',
+          url: url,
+          file_id: fileId,
+          uploader_name: uploader.name || '',
+          extension: fi.extension || 'mp4',
+          type: fi.type || 'video/mp4',
+          is_app_only: true
+        };
+
+        currentVideoInfo = diskwalaInfo;
+        showStatus('success', '✅', 'DiskWala video details loaded!');
+        displayDiskwalaCard(diskwalaInfo);
+        setTimeout(hideStatus, 2500);
+        return;
+      }
+      throw new Error(metaData.error || 'Could not verify DiskWala file.');
+    } catch (err) {
+      console.warn('DiskWala client fetch fallback to backend /api/fetch:', err);
+      try {
+        const resp = await fetch(getApiBase() + '/api/fetch', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url }),
+        });
+        const data = await resp.json();
+        if (!resp.ok || data.error) throw new Error(data.error || 'Failed to fetch video info.');
+        currentVideoInfo = data;
+        displayDiskwalaCard(data);
+      } catch (fallbackErr) {
+        showStatus('error', '❌', fallbackErr.message || 'Something went wrong.');
+        if (tg && tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('error');
+      }
+    }
+  }
+
+  // ─── Display DiskWala Card ─────────────────────────────────
+  function displayDiskwalaCard(info) {
+    videoTitle.textContent = info.title || 'DiskWala Video';
+
+    videoMeta.innerHTML = '';
+    const badges = [
+      { icon: '📦', text: info.filesize_str || 'File' },
+      { icon: '🎬', text: (info.extension || 'mp4').toUpperCase() },
+      { icon: '👤', text: info.uploader_name ? info.uploader_name.trim() : 'Creator' },
+      { icon: '⚡', text: 'DiskWala Cloud' },
+    ];
+
+    badges.forEach(b => {
+      const el = document.createElement('span');
+      el.className = 'meta-badge';
+      el.innerHTML = `<span class="badge-icon">${b.icon}</span> ${b.text}`;
+      videoMeta.appendChild(el);
+    });
+
+    // Custom DiskWala animated preview banner in videoWrapper
+    const videoWrapper = document.getElementById('videoWrapper');
+    videoPlayer.style.display = 'none';
+    videoOverlay.style.display = 'none';
+
+    let dwBanner = document.getElementById('dwBannerPreview');
+    if (!dwBanner) {
+      dwBanner = document.createElement('div');
+      dwBanner.id = 'dwBannerPreview';
+      dwBanner.style.cssText = 'width: 100%; aspect-ratio: 16/9; display: flex; flex-direction: column; align-items: center; justify-content: center; background: radial-gradient(circle at center, #1e1b4b 0%, #0c0f17 100%); border-radius: var(--radius-md); padding: 20px; text-align: center; cursor: pointer;';
+      videoWrapper.appendChild(dwBanner);
+    }
+    dwBanner.style.display = 'flex';
+    dwBanner.innerHTML = `
+      <div style="width: 60px; height: 60px; border-radius: 50%; background: var(--brand-gradient); display: flex; align-items: center; justify-content: center; font-size: 26px; color: #fff; box-shadow: 0 0 25px rgba(139, 92, 246, 0.7); margin-bottom: 12px; transition: transform 0.2s;">▶</div>
+      <div style="font-size: 15px; font-weight: 700; color: #fff; margin-bottom: 4px;">Stream Ready in V-Player 📱</div>
+      <div style="font-size: 12px; color: var(--text-secondary);">Tap below to stream or open app</div>
+    `;
+    dwBanner.onclick = () => openInVDiskPro(info.url);
+
+    if (actionButtons) actionButtons.style.display = 'none';
+    if (diskwalaActions) diskwalaActions.style.display = 'flex';
+
+    if (btnDiskwalaVPlayer) btnDiskwalaVPlayer.onclick = () => openInVDiskPro(info.url);
+    if (btnDiskwalaApp) btnDiskwalaApp.onclick = () => openInDiskwalaApp(info.url);
+    if (btnDiskwalaCopy) btnDiskwalaCopy.onclick = () => copyDiskwalaLink(info.url);
+
+    playerCard.classList.add('active');
+    playerCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+    if (tg && tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
+  }
+
+  // ─── External Player Handlers (VDiskPro / DiskWala App) ─────
+  function openInVDiskPro(videoUrl) {
+    if (tg && tg.HapticFeedback) tg.HapticFeedback.impactOccurred('medium');
+    const isAndroid = /Android/i.test(navigator.userAgent);
+    const isIOS = /(iPhone|iPad|iPod)/i.test(navigator.userAgent);
+
+    if (isAndroid) {
+      const clean = videoUrl.replace(/^https?:\/\//, '');
+      window.location.href = `intent://${clean}#Intent;scheme=https;package=com.rpk.video_player;type=video/*;S.browser_fallback_url=https://play.google.com/store/apps/details?id=com.rpk.video_player;end`;
+      return;
+    }
+    if (isIOS) {
+      window.location.href = 'https://apps.apple.com/us/app/v-player-all-in-one/id6774285429';
+      return;
+    }
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(videoUrl);
+      showStatus('success', '📋', 'Stream link copied! Open in V-Player / VLC.');
+      setTimeout(hideStatus, 3000);
+    }
+  }
+
+  function openInDiskwalaApp(videoUrl) {
+    if (tg && tg.HapticFeedback) tg.HapticFeedback.impactOccurred('medium');
+    const isAndroid = /Android/i.test(navigator.userAgent);
+    if (isAndroid) {
+      const clean = videoUrl.replace(/^https?:\/\//, '');
+      window.location.href = `intent://${clean}#Intent;scheme=https;package=com.diskwalaapp;S.browser_fallback_url=https://play.google.com/store/apps/details?id=com.diskwalaapp;end`;
+      return;
+    }
+    window.open(videoUrl, '_blank');
+  }
+
+  function copyDiskwalaLink(videoUrl) {
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(videoUrl).then(() => {
+        if (tg && tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
+        showStatus('success', '📋', 'DiskWala link copied to clipboard!');
+        setTimeout(hideStatus, 2500);
+      });
+    }
+  }
+
   // ─── Display Video ─────────────────────────────────────────
   function displayVideo(info) {
     videoTitle.textContent = info.title || 'Video';
+
+    // Restore video player & controls
+    videoPlayer.style.display = 'block';
+    videoOverlay.style.display = '';
+    const dwBanner = document.getElementById('dwBannerPreview');
+    if (dwBanner) dwBanner.style.display = 'none';
+
+    if (actionButtons) actionButtons.style.display = 'flex';
+    if (diskwalaActions) diskwalaActions.style.display = 'none';
+
+    if (vdiskBtn) {
+      vdiskBtn.onclick = () => {
+        const streamUrl = info.stream_url || info.direct_url || (info.formats && info.formats[0]?.direct_url) || info.url;
+        openInVDiskPro(streamUrl);
+      };
+    }
 
     videoMeta.innerHTML = '';
     const badges = [];

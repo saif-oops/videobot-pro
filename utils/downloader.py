@@ -480,23 +480,24 @@ async def _diskwala_info(url: str) -> dict:
     file_id = file_id_m.group(1) if file_id_m else "file"
 
     return {
-        "title": f"DiskWala Media ({file_id})",
+        "title": f"DiskWala Video ({file_id})",
         "thumbnail": None,
-        "duration": "App Only",
+        "duration": "V-Player / App",
         "duration_secs": None,
         "formats": [{
             "format_id": "__app__",
-            "label": "Open in DiskWala App",
-            "height": 0,
+            "label": "Stream in V-Player / App",
+            "height": 720,
             "filesize": 0,
-            "filesize_str": "App Required",
-            "ext": "app",
+            "filesize_str": "Cloud Stream",
+            "ext": "mp4",
             "direct_url": url,
             "url": url,
         }],
-        "filesize_str": "App Only",
+        "filesize_str": "Cloud Stream",
         "platform": "diskwala",
         "url": url,
+        "file_id": file_id,
         "is_app_only": True,
         "app_url": url,
     }

@@ -107,17 +107,30 @@ async def link_handler(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         return
 
     if info.get("platform") == "diskwala":
+        from config import TERABOX_WEBAPP_URL
+        from telegram import WebAppInfo
         app_url = info.get("app_url") or url
-        keyboard = InlineKeyboardMarkup([
-            [InlineKeyboardButton("📱 Open in DiskWala App", url=app_url)],
-            [InlineKeyboardButton("❌ Cancel", callback_data="cancel")]
+        vplayer_url = "https://play.google.com/store/apps/details?id=com.rpk.video_player"
+        keyboard_buttons = []
+        if TERABOX_WEBAPP_URL and TERABOX_WEBAPP_URL.startswith("https://"):
+            keyboard_buttons.append([InlineKeyboardButton("🎬 Open in Mini App Player", web_app=WebAppInfo(url=TERABOX_WEBAPP_URL))])
+        keyboard_buttons.append([
+            InlineKeyboardButton("📱 Play in V-Player", url=vplayer_url),
+            InlineKeyboardButton("📲 DiskWala App", url=app_url),
         ])
+        keyboard_buttons.append([InlineKeyboardButton("❌ Cancel", callback_data="cancel")])
+        keyboard = InlineKeyboardMarkup(keyboard_buttons)
+
+        title = info.get('title') or 'DiskWala Media'
+        size_str = info.get('filesize_str') or ''
+        size_line = f"📦 <b>Size:</b> <code>{size_str}</code>\n" if size_str and size_str != 'App Only' else ""
+
         diskwala_text = (
-            "💾 <b>DiskWala Link Detected</b>\n\n"
-            f"📹 <b>File:</b> <code>{html.escape(info.get('title', 'DiskWala Video'))}</code>\n"
+            "💾 <b>DiskWala Video Ready!</b>\n\n"
+            f"📹 <b>File:</b> <code>{html.escape(title)}</code>\n"
+            f"{size_line}"
             f"🔗 <b>URL:</b> <code>{html.escape(url)}</code>\n\n"
-            "⚠️ <b>Platform Notice:</b> DiskWala uses device hardware encryption and restricts video playback exclusively to their official mobile application.\n\n"
-            "📲 <b>To watch:</b> Tap below to open directly in the <b>DiskWala App</b>:"
+            "✨ <b>How to watch:</b> Tap <b>Open in Mini App Player</b> to stream with zero forced ads, or choose <b>V-Player / DiskWala App</b> below:"
         )
         try:
             await fetching_msg.edit_text(diskwala_text, parse_mode="HTML", reply_markup=keyboard)
