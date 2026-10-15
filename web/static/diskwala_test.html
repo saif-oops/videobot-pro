@@ -20,9 +20,15 @@
     const runBtn = document.getElementById('runBtn');
 
     runBtn.addEventListener('click', async () => {
-      output.textContent = "Loading Appicrypt SDK from Diskwala CDN...";
+      output.textContent = "Loading Appicrypt SDK...";
       try {
-        const appicryptModule = await import('https://www.diskwala.com/pkg/appicrypt-web-f-0_1_216.js');
+        let appicryptModule;
+        try {
+          appicryptModule = await import('/pkg/appicrypt-web-f-0_1_216.js');
+        } catch (e) {
+          output.textContent += "\nLocal SDK load failed, trying Diskwala CDN: " + e.message;
+          appicryptModule = await import('https://www.diskwala.com/pkg/appicrypt-web-f-0_1_216.js');
+        }
         output.textContent += "\nSDK loaded! Fetching magic file...";
         
         // Fetch qt magic string
@@ -31,6 +37,7 @@
         
         output.textContent += "\nSetting magic file in WASM...";
         await appicryptModule.setMagicFile(qt);
+        window.appicryptModule = appicryptModule;
         output.textContent += "\nWASM Initialized successfully!";
 
         function Yt(e) {
@@ -55,27 +62,33 @@
             "Appicrypt-ts": ts,
           };
         }
+        window.signRequest = signRequest;
 
         const testCode = "6ace62e32a52418b242be6b8";
-        const urlPath = `/public/c/${testCode}`;
-        output.textContent += `\nSigning request for ${urlPath}...`;
+        const urlPath = `/file/temp_info`;
+        const bodyObj = { id: testCode };
+        output.textContent += `\nSigning POST ${urlPath} with ${JSON.stringify(bodyObj)}...`;
 
-        const sig = await signRequest("GET", urlPath);
-        output.textContent += `\nSignature: Appicrypt=${sig.Appicrypt.substring(0, 30)}... | Appicrypt-ts=${sig["Appicrypt-ts"]}`;
+        const sig = await signRequest("POST", urlPath, null, bodyObj);
+        output.textContent += `\nFULL_SIG:${JSON.stringify(sig)}`;
 
-        output.textContent += `\nCalling https://ddudapidd.diskwala.com/api/v1/public/c/${testCode}...`;
-        const resp = await fetch(`https://ddudapidd.diskwala.com/api/v1/public/c/${testCode}`, {
-          method: "GET",
-          headers: {
-            "Accept": "application/json, text/plain, */*",
-            "Appicrypt": sig.Appicrypt,
-            "Appicrypt-ts": sig["Appicrypt-ts"],
-          }
-        });
-
-        output.textContent += `\nResponse Status: ${resp.status} ${resp.statusText}\n\n`;
-        const resData = await resp.json();
-        output.textContent += JSON.stringify(resData, null, 2);
+        output.textContent += `\nCalling backend /api/diskwala_meta...`;
+        try {
+          const resp = await fetch(`/api/diskwala_meta`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              id: testCode,
+              appicrypt: sig.Appicrypt,
+              appicrypt_ts: sig["Appicrypt-ts"]
+            })
+          });
+          const resData = await resp.json();
+          output.textContent += `\nResponse Status: ${resp.status} ${resp.statusText}\n\n`;
+          output.textContent += JSON.stringify(resData, null, 2);
+        } catch (e) {
+          output.textContent += `\nBackend proxy failed: ${e.message}`;
+        }
 
       } catch (err) {
         output.textContent += `\n❌ Error: ${err.message || err}\n${err.stack || ''}`;

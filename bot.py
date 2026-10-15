@@ -218,6 +218,8 @@ async def static_file(request: Request):
         ".html": "text/html",
         ".css": "text/css",
         ".js": "application/javascript",
+        ".wasm": "application/wasm",
+        ".txt": "text/plain",
         ".png": "image/png",
         ".jpg": "image/jpeg",
         ".svg": "image/svg+xml",
@@ -228,9 +230,38 @@ async def static_file(request: Request):
     try:
         with open(safe_path, "rb") as f:
             content = f.read()
-        return Response(content, media_type=media_type, headers={"Cache-Control": "no-cache, no-store, must-revalidate", "Pragma": "no-cache"})
+        return Response(content, media_type=media_type, headers={
+            "Access-Control-Allow-Origin": "*",
+            "Cache-Control": "no-cache, no-store, must-revalidate",
+            "Pragma": "no-cache"
+        })
     except Exception as e:
         return PlainTextResponse(f"Static file error: {e}", status_code=500)
+
+
+async def pkg_file(request: Request):
+    """Serve AppiCrypt WASM and JS packages for client-side signing."""
+    filename = request.path_params.get("filename", "")
+    pkg_dir = os.path.join(STATIC_DIR, "pkg")
+    safe_path = os.path.normpath(os.path.join(pkg_dir, filename))
+    if not safe_path.startswith(pkg_dir) or not os.path.isfile(safe_path):
+        return PlainTextResponse("Not Found", status_code=404)
+
+    ext = os.path.splitext(safe_path)[1].lower()
+    media_types = {
+        ".js": "application/javascript",
+        ".wasm": "application/wasm",
+    }
+    media_type = media_types.get(ext, "application/octet-stream")
+    try:
+        with open(safe_path, "rb") as f:
+            content = f.read()
+        return Response(content, media_type=media_type, headers={
+            "Access-Control-Allow-Origin": "*",
+            "Cache-Control": "public, max-age=86400",
+        })
+    except Exception as e:
+        return PlainTextResponse(f"File error: {e}", status_code=500)
 
 
 # ─── API: Fetch Video Info ────────────────────────────────────
@@ -524,6 +555,45 @@ async def api_config(request: Request):
     }, headers=_cors_headers())
 
 
+async def api_diskwala_meta(request: Request):
+    """POST /api/diskwala_meta — Forward signed AppiCrypt request to Diskwala API."""
+    if request.method == "OPTIONS":
+        return PlainTextResponse("OK", headers=_cors_headers())
+
+    try:
+        body = await request.json()
+    except Exception:
+        return JSONResponse({"error": "Invalid JSON"}, status_code=400, headers=_cors_headers())
+
+    file_id = body.get("id", "").strip()
+    appicrypt = body.get("appicrypt", "").strip()
+    appicrypt_ts = body.get("appicrypt_ts", "").strip()
+
+    if not file_id or not appicrypt or not appicrypt_ts:
+        return JSONResponse({"error": "Missing required fields (id, appicrypt, appicrypt_ts)"}, status_code=400, headers=_cors_headers())
+
+    target_url = "https://ddudapidd.diskwala.com/api/v1/file/temp_info"
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+        "Origin": "https://www.diskwala.com",
+        "Referer": f"https://www.diskwala.com/app/{file_id}",
+        "Accept": "application/json, text/plain, */*",
+        "Content-Type": "application/json",
+        "Appicrypt": appicrypt,
+        "Appicrypt-ts": appicrypt_ts,
+    }
+
+    try:
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            resp = await client.post(target_url, headers=headers, json={"id": file_id})
+            if resp.status_code == 200:
+                data = resp.json()
+                return JSONResponse(data, headers=_cors_headers())
+            return JSONResponse({"error": f"Diskwala returned HTTP {resp.status_code}", "detail": resp.text}, status_code=resp.status_code, headers=_cors_headers())
+    except Exception as e:
+        return JSONResponse({"error": f"Failed to contact Diskwala: {e}"}, status_code=502, headers=_cors_headers())
+
+
 # ─── CORS preflight handler ──────────────────────────────────
 
 async def cors_preflight(request: Request):
@@ -534,7 +604,7 @@ def _cors_headers():
     return {
         "Access-Control-Allow-Origin": "*",
         "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-        "Access-Control-Allow-Headers": "Content-Type, Range",
+        "Access-Control-Allow-Headers": "Content-Type, Range, Appicrypt, Appicrypt-ts",
     }
 
 
@@ -557,9 +627,11 @@ def create_starlette_app(webhook_mode: bool) -> Starlette:
         Route("/api/download",      api_download, methods=["GET"]),
         Route("/api/user_status",   api_user_status, methods=["GET", "OPTIONS"]),
         Route("/api/config",        api_config, methods=["GET", "OPTIONS"]),
+        Route("/api/diskwala_meta", api_diskwala_meta, methods=["POST", "OPTIONS"]),
 
         # Static files (CSS, JS, etc.)
         Route("/static/{filename:path}", static_file),
+        Route("/pkg/{filename:path}",    pkg_file),
     ]
     if webhook_mode:
         routes.append(Route("/telegram/webhook", telegram_webhook, methods=["POST"]))
