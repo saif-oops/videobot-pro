@@ -615,6 +615,80 @@ def _cors_headers():
     }
 
 
+async def upi_redirect_page(request: Request):
+    """Deep-link redirect to open mobile UPI apps without triggering Telegram's Button_url_invalid."""
+    from config import UPI_ID, UPI_NAME, PREMIUM_PRICE_INR
+    from urllib.parse import quote
+    uid = request.query_params.get("uid", "")
+    upi_intent = f"upi://pay?pa={UPI_ID}&pn={quote(UPI_NAME)}&am={PREMIUM_PRICE_INR}&cu=INR&tn=VIP_{uid}"
+    html_content = f"""<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Pay via UPI — VideoBot Pro</title>
+    <meta http-equiv="refresh" content="0; url={upi_intent}">
+    <style>
+        body {{
+            background: #0b0f19;
+            color: #ffffff;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+            text-align: center;
+        }}
+        .card {{
+            background: #151c2d;
+            border: 1px solid #2a344d;
+            border-radius: 16px;
+            padding: 28px 24px;
+            max-width: 360px;
+            width: 100%;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        }}
+        .btn {{
+            display: block;
+            background: linear-gradient(135deg, #6366f1, #a855f7);
+            color: #fff;
+            text-decoration: none;
+            padding: 14px 20px;
+            border-radius: 12px;
+            font-weight: 700;
+            font-size: 16px;
+            margin-top: 18px;
+        }}
+        .qr {{
+            width: 220px;
+            height: 220px;
+            border-radius: 12px;
+            margin: 15px auto;
+            background: #fff;
+            padding: 8px;
+            display: block;
+        }}
+    </style>
+</head>
+<body>
+    <div class="card">
+        <h2 style="margin:0 0 8px 0; font-size:20px;">💎 VideoBot Pro VIP</h2>
+        <p style="color:#94a3b8; margin:0 0 14px 0; font-size:14px;">Amount: <b>₹{PREMIUM_PRICE_INR}</b> (30 Days)</p>
+        <img class="qr" src="/static/upi_qr.jpg" alt="UPI QR Code">
+        <p style="font-size:13px; color:#cbd5e1; margin:8px 0;">UPI ID: <code>{UPI_ID}</code></p>
+        <a class="btn" href="{upi_intent}">📲 Open in UPI App</a>
+    </div>
+    <script>
+        window.location.href = "{upi_intent}";
+    </script>
+</body>
+</html>"""
+    return HTMLResponse(html_content)
+
+
 # ─── Build Starlette App ─────────────────────────────────────
 
 def create_starlette_app(webhook_mode: bool) -> Starlette:
@@ -627,6 +701,7 @@ def create_starlette_app(webhook_mode: bool) -> Starlette:
         # Payments
         Route("/webhook/razorpay",  razorpay_webhook, methods=["POST"]),
         Route("/payment/success",   payment_success),
+        Route("/pay/upi",           upi_redirect_page),
 
         # API routes
         Route("/api/fetch",         api_fetch, methods=["POST", "OPTIONS"]),

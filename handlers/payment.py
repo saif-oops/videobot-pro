@@ -146,8 +146,12 @@ async def pay_upi_qr_callback(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         "⚡ <i>Once verified, your VIP access is activated immediately!</i>"
     )
 
+    from config import TERABOX_WEBAPP_URL, WEBHOOK_URL
+    base_web = (WEBHOOK_URL or (TERABOX_WEBAPP_URL.replace("/player", "") if TERABOX_WEBAPP_URL else "") or "https://videobot-pro.up.railway.app").rstrip("/")
+    upi_web_url = f"{base_web}/pay/upi?uid={tg_user.id}"
+
     kb = InlineKeyboardMarkup([
-        [InlineKeyboardButton("📲 Open in UPI App", url=upi_intent)],
+        [InlineKeyboardButton("📲 Open in UPI App (GPay/PhonePe)", url=upi_web_url)],
         [InlineKeyboardButton("✍️ Submit UTR / Reference No.", callback_data="submit_utr")],
         [InlineKeyboardButton("🔙 Back to Payment Options", callback_data="goto_premium")],
     ])
