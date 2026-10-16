@@ -106,37 +106,6 @@ async def link_handler(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         )
         return
 
-    if info.get("platform") == "diskwala":
-        from config import TERABOX_WEBAPP_URL
-        from telegram import WebAppInfo
-        app_url = info.get("app_url") or url
-        vplayer_url = "https://play.google.com/store/apps/details?id=com.rpk.video_player"
-        keyboard_buttons = []
-        if TERABOX_WEBAPP_URL and TERABOX_WEBAPP_URL.startswith("https://"):
-            keyboard_buttons.append([InlineKeyboardButton("🎬 Open in Mini App Player", web_app=WebAppInfo(url=TERABOX_WEBAPP_URL))])
-        keyboard_buttons.append([
-            InlineKeyboardButton("📱 Play in V-Player", url=vplayer_url),
-            InlineKeyboardButton("📲 DiskWala App", url=app_url),
-        ])
-        keyboard_buttons.append([InlineKeyboardButton("❌ Cancel", callback_data="cancel")])
-        keyboard = InlineKeyboardMarkup(keyboard_buttons)
-
-        title = info.get('title') or 'DiskWala Media'
-        size_str = info.get('filesize_str') or ''
-        size_line = f"📦 <b>Size:</b> <code>{size_str}</code>\n" if size_str and size_str != 'App Only' else ""
-
-        diskwala_text = (
-            "💾 <b>DiskWala Video Ready!</b>\n\n"
-            f"📹 <b>File:</b> <code>{html.escape(title)}</code>\n"
-            f"{size_line}"
-            f"🔗 <b>URL:</b> <code>{html.escape(url)}</code>\n\n"
-            "✨ <b>How to watch:</b> Tap <b>Open in Mini App Player</b> to stream with zero forced ads, or choose <b>V-Player / DiskWala App</b> below:"
-        )
-        try:
-            await fetching_msg.edit_text(diskwala_text, parse_mode="HTML", reply_markup=keyboard)
-        except Exception:
-            await msg.reply_text(diskwala_text, parse_mode="HTML", reply_markup=keyboard)
-        return
 
     # Store in session
     url_hash = store_session(url, info)
@@ -298,6 +267,22 @@ async def _handle_download(query, ctx, url: str, info: dict,
             )
         else:
             await query.message.reply_text(f"⛔ {reason}")
+    if info.get("platform") == "diskwala" or info.get("is_app_only"):
+        from config import TERABOX_WEBAPP_URL
+        from urllib.parse import quote
+        from telegram import WebAppInfo
+        player_link = f"{TERABOX_WEBAPP_URL}?url={quote(url, safe='')}" if TERABOX_WEBAPP_URL.startswith("https://") else ""
+        kb_rows = []
+        if player_link:
+            kb_rows.append([InlineKeyboardButton("🌐 Watch Online", web_app=WebAppInfo(url=player_link))])
+        await query.answer("DiskWala videos stream online via Watch Online!", show_alert=True)
+        await query.message.reply_text(
+            "💾 <b>DiskWala Cloud Video</b>\n\n"
+            "DiskWala does not allow direct file downloads into Telegram chat.\n\n"
+            "👉 Tap <b>🌐 Watch Online</b> below to stream:",
+            parse_mode="HTML",
+            reply_markup=InlineKeyboardMarkup(kb_rows) if kb_rows else None
+        )
         return
 
     fmt = info["formats"][min(fmt_idx, len(info["formats"]) - 1)]
