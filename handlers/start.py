@@ -54,9 +54,19 @@ HELP_TEXT = (
 async def start_handler(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
 
-    # Check for referral parameter in /start ref_<id>
+    # Check for referral parameter in /start ref_<id> or direct actions
     referrer_id = None
     ref_param = ctx.args[0] if (ctx.args and len(ctx.args) > 0) else ""
+
+    if ref_param == "premium":
+        from handlers.payment import premium_command
+        await premium_command(update, ctx)
+        return
+
+    if ref_param == "refer":
+        await refer_handler(update, ctx)
+        return
+
     if ref_param.startswith("ref_"):
         raw_id = ref_param.replace("ref_", "").strip()
         if raw_id.isdigit():

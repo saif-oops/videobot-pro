@@ -139,8 +139,15 @@ def build_ptb_app() -> Application:
     # ── Callbacks ──
     app.add_handler(CallbackQueryHandler(callback_handler))
 
-    # ── Link messages ──
+    # ── Link & payment messages ──
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, link_handler))
+
+    async def _photo_receipt_handler(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+        if ctx.user_data.get("awaiting_utr"):
+            from handlers.payment import handle_utr_submission
+            await handle_utr_submission(update, ctx)
+
+    app.add_handler(MessageHandler(filters.PHOTO, _photo_receipt_handler))
 
     return app
 

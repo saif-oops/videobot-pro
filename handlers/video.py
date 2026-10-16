@@ -45,6 +45,12 @@ async def link_handler(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     msg = update.message
     text = msg.text or ""
 
+    # Check if user is submitting UPI UTR payment reference
+    if ctx.user_data.get("awaiting_utr"):
+        from handlers.payment import handle_utr_submission
+        await handle_utr_submission(update, ctx)
+        return
+
     url = extract_url(text)
     if not url:
         return  # Not a URL, ignore silently
@@ -190,10 +196,32 @@ async def callback_handler(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         await premium_command(update, ctx)
         return
 
+    if data == "pay_upi_qr":
+        from handlers.payment import pay_upi_qr_callback
+        await pay_upi_qr_callback(update, ctx)
+        return
+
+    if data == "submit_utr":
+        from handlers.payment import submit_utr_callback
+        await submit_utr_callback(update, ctx)
+        return
+
+    if data.startswith("approve_vip:"):
+        from handlers.payment import approve_vip_callback
+        await approve_vip_callback(update, ctx)
+        return
+
+    if data.startswith("reject_vip:"):
+        from handlers.payment import reject_vip_callback
+        await reject_vip_callback(update, ctx)
+        return
+
     if data == "verify_payment":
         await query.message.reply_text(
-            "✅ Please allow up to <b>5 minutes</b> for payment verification.\n"
-            "If not activated after 10 minutes, contact @admin.",
+            "✅ <b>Payment Status Check</b>\n\n"
+            "• If paid via <b>Razorpay</b>, activation is automated within 2 minutes.\n"
+            "• If paid via <b>UPI QR Code</b>, tap <b>✍️ Submit UTR / Reference No.</b> to submit your receipt for instant admin approval.\n\n"
+            "If your VIP is not active after 10 minutes, contact @admin for immediate help.",
             parse_mode="HTML"
         )
         return

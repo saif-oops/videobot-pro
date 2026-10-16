@@ -37,12 +37,14 @@ def selected_quality_keyboard(url_hash: str, fmt_idx: int,
     return InlineKeyboardMarkup(rows)
 
 
-def buy_premium_keyboard(payment_url: str) -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup([[
-        InlineKeyboardButton("💳 Pay ₹99 — Monthly Premium (30 Days)", url=payment_url),
-    ], [
-        InlineKeyboardButton("✅ I've Paid — Verify", callback_data="verify_payment"),
-    ]])
+def buy_premium_keyboard(payment_url: str = "") -> InlineKeyboardMarkup:
+    from config import RAZORPAY_PAYMENT_URL
+    rzp_url = payment_url or RAZORPAY_PAYMENT_URL or "https://rzp.io/rzp/1tGAGsc"
+    return InlineKeyboardMarkup([
+        [InlineKeyboardButton("💳 Pay via Razorpay (Instant VIP)", url=rzp_url)],
+        [InlineKeyboardButton("📱 Pay via UPI / QR Code (0% Fee)", callback_data="pay_upi_qr")],
+        [InlineKeyboardButton("✅ I've Paid — Check Status", callback_data="verify_payment")],
+    ])
 
 
 def large_file_keyboard(original_url: str, direct_url: str, title: str, file_size_mb: float) -> InlineKeyboardMarkup:
