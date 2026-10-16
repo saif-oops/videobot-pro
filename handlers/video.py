@@ -113,13 +113,20 @@ async def link_handler(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         return
 
 
-    # Store in session
-    url_hash = store_session(url, info)
+    # Deduct 1 free use upon successful fetch for free tier users
+    db_user = await get_user(tg_user.id)
+    if not db_user.get("is_premium"):
+        await decrement_free_uses(tg_user.id)
+    await increment_total_uses(tg_user.id)
 
+    # Store in session with deducted=True
+    url_hash = store_session(url, info, user_id=tg_user.id, deducted=True)
+
+    # Re-fetch user so remaining uses count accurately reflects the deduction
     user = await get_user(tg_user.id)
     text = video_info_message(info, user)
     web_url = info.get("final_url") or info.get("direct_url") or url
-    keyboard = video_action_keyboard(info["formats"], url_hash, web_url=web_url, original_url=url)
+    keyboard = video_action_keyboard(info["formats"], url_hash, web_url=web_url, original_url=url, user_id=tg_user.id)
 
     # Send thumbnail if available
     photo_sent = False
@@ -272,29 +279,34 @@ async def callback_handler(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         return
 
     if action in ("play", "download"):
-        await _handle_download(query, ctx, url, info, fmt_idx, action)
+        await _handle_download(query, ctx, url, info, fmt_idx, action, url_hash=url_hash)
 
 
 # ─── Download & Send ──────────────────────────────────────────
 
 async def _handle_download(query, ctx, url: str, info: dict,
-                            fmt_idx: int, action: str):
+                            fmt_idx: int, action: str, url_hash: str = ""):
     tg_user = query.from_user
     chat_id = query.message.chat_id
 
-    # Re-check quota
-    allowed, reason = await can_use(tg_user.id)
-    if not allowed:
-        if reason == "quota_exceeded":
-            payment_url = await _get_payment_url(tg_user.id, tg_user.full_name)
-            from utils.keyboards import buy_premium_keyboard
-            await query.message.reply_text(
-                quota_exceeded_message(),
-                parse_mode="HTML",
-                reply_markup=buy_premium_keyboard(payment_url),
-            )
-        else:
-            await query.message.reply_text(f"⛔ {reason}")
+    session = get_session(url_hash) if url_hash else None
+    already_deducted = session.get("deducted", False) if session else False
+
+    # Re-check quota if this video wasn't already deducted for this session
+    if not already_deducted:
+        allowed, reason = await can_use(tg_user.id)
+        if not allowed:
+            if reason == "quota_exceeded":
+                payment_url = await _get_payment_url(tg_user.id, tg_user.full_name)
+                from utils.keyboards import buy_premium_keyboard
+                await query.message.reply_text(
+                    quota_exceeded_message(),
+                    parse_mode="HTML",
+                    reply_markup=buy_premium_keyboard(payment_url),
+                )
+            else:
+                await query.message.reply_text(f"⛔ {reason}")
+            return
     if info.get("platform") == "diskwala" or info.get("is_app_only"):
         from config import TERABOX_WEBAPP_URL
         from urllib.parse import quote
@@ -364,7 +376,7 @@ async def _handle_download(query, ctx, url: str, info: dict,
 
                 # Decrement quota & log
                 db_user = await get_user(tg_user.id)
-                if not db_user["is_premium"]:
+                if not already_deducted and not db_user["is_premium"]:
                     await decrement_free_uses(tg_user.id)
                 await increment_total_uses(tg_user.id)
                 await log_download(tg_user.id, url, title, fmt["label"], action, cached.get("file_size") or 0)
@@ -458,7 +470,7 @@ async def _handle_download(query, ctx, url: str, info: dict,
 
                 # Decrement quota & log
                 db_user = await get_user(tg_user.id)
-                if not db_user["is_premium"]:
+                if not already_deducted and not db_user["is_premium"]:
                     await decrement_free_uses(tg_user.id)
                 await increment_total_uses(tg_user.id)
                 await log_download(tg_user.id, url, title, fmt["label"], action, 0)
@@ -519,7 +531,7 @@ async def _handle_download(query, ctx, url: str, info: dict,
 
             # Decrement quota & log
             db_user = await get_user(tg_user.id)
-            if not db_user["is_premium"]:
+            if not already_deducted and not db_user["is_premium"]:
                 await decrement_free_uses(tg_user.id)
             await increment_total_uses(tg_user.id)
             await log_download(tg_user.id, url, title, fmt["label"], "web_download", file_size)
@@ -604,7 +616,7 @@ async def _handle_download(query, ctx, url: str, info: dict,
 
         # Decrement quota & log
         db_user = await get_user(tg_user.id)
-        if not db_user["is_premium"]:
+        if not already_deducted and not db_user["is_premium"]:
             await decrement_free_uses(tg_user.id)
         await increment_total_uses(tg_user.id)
         await log_download(

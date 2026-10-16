@@ -9,12 +9,14 @@ _sessions: dict[str, dict] = {}
 SESSION_TTL = 3600  # 1 hour
 
 
-def store_session(url: str, info: dict) -> str:
+def store_session(url: str, info: dict, user_id: int | None = None, deducted: bool = False) -> str:
     """Store video info and return a short hash key."""
     url_hash = hashlib.md5(f"{url}{time.time()}".encode()).hexdigest()[:12]
     _sessions[url_hash] = {
         "url": url,
         "info": info,
+        "user_id": user_id,
+        "deducted": deducted,
         "expires": time.time() + SESSION_TTL,
     }
     return url_hash

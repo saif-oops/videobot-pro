@@ -9,14 +9,16 @@ from config import TERABOX_WEBAPP_URL
 
 # ─── Video Info Keyboard ──────────────────────────────────────
 
-def video_action_keyboard(formats: list[dict], url_hash: str, web_url: str = "", original_url: str = "") -> InlineKeyboardMarkup:
+def video_action_keyboard(formats: list[dict], url_hash: str, web_url: str = "", original_url: str = "", user_id: int | None = None) -> InlineKeyboardMarkup:
     """Action keyboard: Play in Telegram and Watch Online (Mini App)."""
     rows = [
         [InlineKeyboardButton("✨ ▶️ Play in Telegram ✨", callback_data=f"play:{url_hash}:0")]
     ]
     target_url = original_url or web_url
     if TERABOX_WEBAPP_URL.startswith("https://") and target_url:
-        player_link = f"{TERABOX_WEBAPP_URL}?url={quote(target_url, safe='')}"
+        uid_param = f"&uid={user_id}" if user_id else ""
+        sid_param = f"&sid={url_hash}" if url_hash else ""
+        player_link = f"{TERABOX_WEBAPP_URL}?url={quote(target_url, safe='')}{sid_param}{uid_param}"
         rows.append([
             InlineKeyboardButton("🌐 Watch Online", web_app=WebAppInfo(url=player_link))
         ])
@@ -24,13 +26,15 @@ def video_action_keyboard(formats: list[dict], url_hash: str, web_url: str = "",
 
 
 def selected_quality_keyboard(url_hash: str, fmt_idx: int,
-                                label: str, web_url: str = "", original_url: str = "") -> InlineKeyboardMarkup:
+                                label: str, web_url: str = "", original_url: str = "", user_id: int | None = None) -> InlineKeyboardMarkup:
     rows = [
         [InlineKeyboardButton("✨ ▶️ Play in Telegram ✨", callback_data=f"play:{url_hash}:{fmt_idx}")]
     ]
     target_url = original_url or web_url
     if TERABOX_WEBAPP_URL.startswith("https://") and target_url:
-        player_link = f"{TERABOX_WEBAPP_URL}?url={quote(target_url, safe='')}"
+        uid_param = f"&uid={user_id}" if user_id else ""
+        sid_param = f"&sid={url_hash}" if url_hash else ""
+        player_link = f"{TERABOX_WEBAPP_URL}?url={quote(target_url, safe='')}{sid_param}{uid_param}"
         rows.append([
             InlineKeyboardButton("🌐 Watch Online", web_app=WebAppInfo(url=player_link))
         ])
@@ -43,6 +47,7 @@ def buy_premium_keyboard(payment_url: str = "") -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup([
         [InlineKeyboardButton("💳 Pay via Razorpay (Instant VIP)", url=rzp_url)],
         [InlineKeyboardButton("📱 Pay via UPI / QR Code (0% Fee)", callback_data="pay_upi_qr")],
+        [InlineKeyboardButton("🎁 Refer Friends — Earn Free Uses", callback_data="refresh_refer")],
         [InlineKeyboardButton("✅ I've Paid — Check Status", callback_data="verify_payment")],
     ])
 
@@ -117,7 +122,13 @@ def video_info_message(info: dict, user: dict) -> str:
         quota_line = "🌟 <b>Premium Account</b> — Unlimited access"
     else:
         remaining = user.get("free_uses", 0)
-        quota_line = f"🎫 <b>Free Uses Remaining:</b> {remaining}/5"
+        if remaining > 0:
+            quota_line = f"🎫 <b>Free Uses Remaining:</b> {remaining}/5"
+        else:
+            quota_line = (
+                "⚠️ <b>Free Limit Reached (5/5 Used)!</b>\n"
+                "<i>This was your 5th and final free unlock. Upgrade to Monthly VIP (/premium) to fetch more videos!</i>"
+            )
 
     return (
         f"🎉 <b>Access Granted!</b> Your {platform} video is unlocked.\n\n"
@@ -130,12 +141,14 @@ def video_info_message(info: dict, user: dict) -> str:
 
 def quota_exceeded_message() -> str:
     return (
-        "❌ <b>Free Limit Reached!</b>\n\n"
-        "You've used all <b>5 free video plays/downloads</b>.\n\n"
-        "🌟 Upgrade to <b>Monthly Premium</b> for just <b>₹99 / Month</b>\n"
-        "✅ Unlimited downloads & plays\n"
-        "✅ All platforms supported (TeraBox & DiskWala)\n"
-        "✅ 30 Days of full uninterrupted access\n"
-        "✅ Priority support\n\n"
-        "👇 Tap below to pay securely via Razorpay:"
+        "❌ <b>Free Limit Reached (5/5 Used)!</b>\n\n"
+        "You have used all <b>5 free video unlocks</b>.\n"
+        "To continue fetching and streaming videos, please subscribe to <b>Monthly VIP</b>.\n\n"
+        "🌟 <b>VideoBot Pro Premium — ₹99 / Month (30 Days)</b>\n"
+        "✅ <b>Unlimited</b> video downloads & plays\n"
+        "✅ <b>Zero ads</b> & zero countdown waits\n"
+        "✅ Full 4K, 1080p & 720p stream qualities\n"
+        "✅ Both TeraBox & DiskWala fully supported\n"
+        "✅ High-speed cloud streaming\n\n"
+        "👇 <b>Choose your payment method below:</b>"
     )

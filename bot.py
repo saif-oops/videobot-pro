@@ -274,7 +274,7 @@ async def pkg_file(request: Request):
 # ─── API: Fetch Video Info ────────────────────────────────────
 
 async def api_fetch(request: Request):
-    """POST /api/fetch — Extract video metadata and stream URL."""
+    """POST /api/fetch — Extract video metadata and stream URL with quota enforcement."""
     try:
         body = await request.json()
     except Exception:
@@ -283,6 +283,29 @@ async def api_fetch(request: Request):
     url = body.get("url", "").strip()
     if not url:
         return JSONResponse({"error": "Missing 'url' field"}, status_code=400)
+
+    sid = body.get("sid", "").strip()
+    raw_uid = body.get("user_id")
+
+    # If valid session ID is provided and matches URL, return cached metadata with zero deduction
+    if sid:
+        from utils.sessions import get_session
+        session = get_session(sid)
+        if session and session.get("url") == url and session.get("info"):
+            return JSONResponse(session["info"], headers=_cors_headers())
+
+    user_id = int(raw_uid) if (raw_uid and str(raw_uid).isdigit()) else None
+
+    # Check quota if user_id is provided
+    if user_id:
+        from database.models import can_use, get_or_create_user
+        await get_or_create_user(user_id, "", "")
+        allowed, reason = await can_use(user_id)
+        if not allowed:
+            return JSONResponse({
+                "error": "QUOTA_EXCEEDED",
+                "message": "Free limit reached (5/5 uses used). Please subscribe to Monthly VIP to continue."
+            }, status_code=403, headers=_cors_headers())
 
     from utils.downloader import detect_platform
     if not detect_platform(url):
@@ -295,6 +318,15 @@ async def api_fetch(request: Request):
     try:
         from utils.downloader import get_video_info
         info = await get_video_info(url)
+
+        # Decrement quota upon successful fetch if free tier user
+        if user_id:
+            from database.models import get_user, decrement_free_uses, increment_total_uses
+            db_user = await get_user(user_id)
+            if db_user and not db_user.get("is_premium"):
+                await decrement_free_uses(user_id)
+            await increment_total_uses(user_id)
+
         return JSONResponse(info, headers=_cors_headers())
     except RuntimeError as e:
         return JSONResponse({"error": str(e)}, status_code=422, headers=_cors_headers())
@@ -528,13 +560,20 @@ async def api_download(request: Request):
 async def api_user_status(request: Request):
     """Check VIP status and quota for WebApp user."""
     user_id = request.query_params.get("user_id")
-    from database.models import get_user
+    from database.models import get_user, get_or_create_user
     if not user_id or not user_id.isdigit():
-        return JSONResponse({"is_premium": False, "free_uses": 5}, headers=_cors_headers())
+        return JSONResponse({"is_premium": False, "free_uses": 0, "unauthenticated": True}, headers=_cors_headers())
 
-    user = await get_user(int(user_id))
+    uid = int(user_id)
+    user = await get_user(uid)
     if not user:
-        return JSONResponse({"is_premium": False, "free_uses": 5}, headers=_cors_headers())
+        user = await get_or_create_user(uid, "", "")
+
+    # Check expiration if premium
+    if user.get("is_premium") and user.get("premium_until"):
+        from database.models import can_use
+        await can_use(uid)  # refreshes expiration if expired
+        user = await get_user(uid)
 
     return JSONResponse({
         "user_id": user["user_id"],
@@ -563,7 +602,7 @@ async def api_config(request: Request):
 
 
 async def api_diskwala_meta(request: Request):
-    """POST /api/diskwala_meta — Forward signed AppiCrypt request to Diskwala API."""
+    """POST /api/diskwala_meta — Forward signed AppiCrypt request to Diskwala API with quota enforcement."""
     if request.method == "OPTIONS":
         return PlainTextResponse("OK", headers=_cors_headers())
 
@@ -575,9 +614,32 @@ async def api_diskwala_meta(request: Request):
     file_id = body.get("id", "").strip()
     appicrypt = body.get("appicrypt", "").strip()
     appicrypt_ts = body.get("appicrypt_ts", "").strip()
+    sid = body.get("sid", "").strip()
+    raw_uid = body.get("user_id")
 
     if not file_id or not appicrypt or not appicrypt_ts:
         return JSONResponse({"error": "Missing required fields (id, appicrypt, appicrypt_ts)"}, status_code=400, headers=_cors_headers())
+
+    # Check session
+    is_session_unlocked = False
+    if sid:
+        from utils.sessions import get_session
+        session = get_session(sid)
+        if session and session.get("deducted"):
+            is_session_unlocked = True
+
+    user_id = int(raw_uid) if (raw_uid and str(raw_uid).isdigit()) else None
+
+    # Enforce quota if not already unlocked
+    if not is_session_unlocked and user_id:
+        from database.models import can_use, get_or_create_user
+        await get_or_create_user(user_id, "", "")
+        allowed, reason = await can_use(user_id)
+        if not allowed:
+            return JSONResponse({
+                "error": "QUOTA_EXCEEDED",
+                "message": "Free limit reached (5/5 uses used). Please subscribe to Monthly VIP to continue."
+            }, status_code=403, headers=_cors_headers())
 
     target_url = "https://ddudapidd.diskwala.com/api/v1/file/temp_info"
     headers = {
@@ -595,6 +657,12 @@ async def api_diskwala_meta(request: Request):
             resp = await client.post(target_url, headers=headers, json={"id": file_id})
             if resp.status_code == 200:
                 data = resp.json()
+                if not is_session_unlocked and user_id:
+                    from database.models import get_user, decrement_free_uses, increment_total_uses
+                    db_user = await get_user(user_id)
+                    if db_user and not db_user.get("is_premium"):
+                        await decrement_free_uses(user_id)
+                    await increment_total_uses(user_id)
                 return JSONResponse(data, headers=_cors_headers())
             return JSONResponse({"error": f"Diskwala returned HTTP {resp.status_code}", "detail": resp.text}, status_code=resp.status_code, headers=_cors_headers())
     except Exception as e:

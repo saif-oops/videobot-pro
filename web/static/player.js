@@ -41,6 +41,13 @@
   const adCloseBtn       = document.getElementById('adCloseBtn');
   const adVipCtaBtn      = document.getElementById('adVipCtaBtn');
 
+  // Subscription Modal References
+  const subOverlay       = document.getElementById('subOverlay');
+  const subCloseBtn      = document.getElementById('subCloseBtn');
+  const btnSubRazorpay   = document.getElementById('btnSubRazorpay');
+  const btnSubUpi        = document.getElementById('btnSubUpi');
+  const btnSubRefer      = document.getElementById('btnSubRefer');
+
   // Network / Header References
   const userTierPill     = document.getElementById('userTierPill');
   const tierIcon         = document.getElementById('tierIcon');
@@ -56,21 +63,33 @@
   let hlsInstance        = null;
   let isFetching         = false;
   let isVip              = false;
+  let freeUses           = 5;
   let appConfig          = { channel: '@TeraBox_Viral_1', bot_username: '' };
   let adInterval         = null;
   let pendingAction      = null;
 
   // ─── Telegram WebApp SDK Init ──────────────────────────────
   const tg = window.Telegram && window.Telegram.WebApp;
-  let telegramUserId = null;
+  const urlParams = new URLSearchParams(window.location.search);
+  const currentSid = urlParams.get('sid') || '';
+  const uidParam = urlParams.get('uid');
 
+  let telegramUserId = null;
   if (tg) {
     tg.ready();
     tg.expand();
     document.documentElement.style.setProperty('--tg-bg', tg.themeParams.bg_color || '#0a0e1a');
     if (tg.initDataUnsafe && tg.initDataUnsafe.user) {
       telegramUserId = tg.initDataUnsafe.user.id;
+      try { localStorage.setItem('videobot_tg_uid', telegramUserId); } catch (e) {}
     }
+  }
+
+  if (!telegramUserId && uidParam) {
+    telegramUserId = uidParam;
+    try { localStorage.setItem('videobot_tg_uid', telegramUserId); } catch (e) {}
+  } else if (!telegramUserId) {
+    try { telegramUserId = localStorage.getItem('videobot_tg_uid'); } catch (e) {}
   }
 
   // ─── Helpers ───────────────────────────────────────────────
@@ -107,6 +126,66 @@
     window.open(link, '_blank');
   }
 
+  // ─── Subscription Modal & Quota UI ────────────────────────
+  function showSubscriptionModal() {
+    if (subOverlay) {
+      subOverlay.style.display = 'flex';
+      if (tg && tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('warning');
+    }
+  }
+
+  function hideSubscriptionModal() {
+    if (subOverlay) {
+      subOverlay.style.display = 'none';
+    }
+  }
+
+  if (subCloseBtn) {
+    subCloseBtn.addEventListener('click', hideSubscriptionModal);
+  }
+
+  if (btnSubRazorpay) {
+    btnSubRazorpay.addEventListener('click', () => {
+      window.open('https://rzp.io/rzp/1tGAGsc', '_blank');
+    });
+  }
+
+  if (btnSubUpi) {
+    btnSubUpi.addEventListener('click', () => {
+      const botName = appConfig.bot_username || 'Tera_Player_Bot';
+      openTg('https://t.me/' + botName + '?start=premium');
+    });
+  }
+
+  if (btnSubRefer) {
+    btnSubRefer.addEventListener('click', () => {
+      const botName = appConfig.bot_username || 'Tera_Player_Bot';
+      openTg('https://t.me/' + botName + '?start=refer');
+    });
+  }
+
+  function updateTierPill() {
+    if (isVip) {
+      userTierPill.className = 'user-tier-pill vip';
+      tierIcon.textContent = '👑';
+      tierText.textContent = 'VIP Member (No Ads)';
+    } else if (freeUses <= 0) {
+      userTierPill.className = 'user-tier-pill limit-reached';
+      tierIcon.textContent = '⛔';
+      tierText.textContent = 'Limit Reached (0/5) — Subscribe';
+    } else {
+      userTierPill.className = 'user-tier-pill';
+      tierIcon.textContent = '🎫';
+      tierText.textContent = `Free (${freeUses}/5 Left)`;
+    }
+  }
+
+  userTierPill.addEventListener('click', () => {
+    if (!isVip) {
+      showSubscriptionModal();
+    }
+  });
+
   // ─── Init User VIP Status & Config ─────────────────────────
   async function loadConfigAndUser() {
     try {
@@ -133,17 +212,18 @@
           const userData = await userResp.json();
           if (userData.is_premium) {
             isVip = true;
-            userTierPill.className = 'user-tier-pill vip';
-            tierIcon.textContent = '👑';
-            tierText.textContent = 'VIP Member (No Ads)';
+            freeUses = 999999;
           } else {
             isVip = false;
-            tierText.textContent = `Free (${userData.free_uses} Left)`;
+            freeUses = userData.free_uses !== undefined ? userData.free_uses : 0;
           }
+          updateTierPill();
         }
       } catch (e) {
         console.warn('Could not fetch user status:', e);
       }
+    } else {
+      updateTierPill();
     }
   }
 
@@ -276,6 +356,14 @@
       showStatus('error', '⚠️', 'Please paste a TeraBox or DiskWala link first.');
       return;
     }
+
+    // Strict Quota Check: If 5/5 free uses have been exhausted and user is not VIP, BLOCK immediately!
+    if (!isVip && freeUses <= 0 && !currentSid) {
+      showStatus('error', '🚫', 'Free limit reached (5/5 uses used). Subscription required!');
+      showSubscriptionModal();
+      return;
+    }
+
     // Run with 10-second ad countdown gate
     runWithAdGate(() => {
       fetchVideo(url);
@@ -306,13 +394,31 @@
       const resp = await fetch(getApiBase() + '/api/fetch', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url }),
+        body: JSON.stringify({
+          url,
+          user_id: telegramUserId,
+          sid: currentSid
+        }),
       });
 
       const data = await resp.json();
 
+      if (resp.status === 403 || data.error === 'QUOTA_EXCEEDED') {
+        freeUses = 0;
+        updateTierPill();
+        showStatus('error', '🚫', 'Free limit reached (5/5 uses used). Subscription required!');
+        showSubscriptionModal();
+        return;
+      }
+
       if (!resp.ok || data.error) {
         throw new Error(data.error || 'Failed to fetch video info.');
+      }
+
+      // Quota decremented successfully on backend
+      if (!isVip && !currentSid) {
+        freeUses = Math.max(0, freeUses - 1);
+        updateTierPill();
       }
 
       currentVideoInfo = data;
@@ -371,12 +477,29 @@
         body: JSON.stringify({
           id: fileId,
           appicrypt: cryptogram,
-          appicrypt_ts: ts
+          appicrypt_ts: ts,
+          user_id: telegramUserId,
+          sid: currentSid
         })
       });
 
       const metaData = await metaResp.json();
+
+      if (metaResp.status === 403 || metaData.error === 'QUOTA_EXCEEDED') {
+        freeUses = 0;
+        updateTierPill();
+        showStatus('error', '🚫', 'Free limit reached (5/5 uses used). Subscription required!');
+        showSubscriptionModal();
+        return;
+      }
+
       if (metaData && metaData.fileInfo) {
+        // Quota decremented successfully on backend
+        if (!isVip && !currentSid) {
+          freeUses = Math.max(0, freeUses - 1);
+          updateTierPill();
+        }
+
         const fi = metaData.fileInfo;
         const uploader = metaData.uploader || {};
         const sizeBytes = fi.size || 0;
@@ -407,10 +530,29 @@
         const resp = await fetch(getApiBase() + '/api/fetch', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ url }),
+          body: JSON.stringify({
+            url,
+            user_id: telegramUserId,
+            sid: currentSid
+          }),
         });
         const data = await resp.json();
+
+        if (resp.status === 403 || data.error === 'QUOTA_EXCEEDED') {
+          freeUses = 0;
+          updateTierPill();
+          showStatus('error', '🚫', 'Free limit reached (5/5 uses used). Subscription required!');
+          showSubscriptionModal();
+          return;
+        }
+
         if (!resp.ok || data.error) throw new Error(data.error || 'Failed to fetch video info.');
+
+        if (!isVip && !currentSid) {
+          freeUses = Math.max(0, freeUses - 1);
+          updateTierPill();
+        }
+
         currentVideoInfo = data;
         displayDiskwalaCard(data);
       } catch (fallbackErr) {
@@ -676,13 +818,18 @@
   });
 
   // ─── Auto-Fetch from URL Query Param ───────────────────────
-  function init() {
-    loadConfigAndUser();
-    const params = new URLSearchParams(window.location.search);
-    const url = params.get('url');
+  async function init() {
+    await loadConfigAndUser();
+    const url = urlParams.get('url');
     if (url) {
       urlInput.value = url;
-      fetchVideo(url);
+      // If user has a valid unlocked session from bot chat (currentSid), or is VIP, or still has quota:
+      if (currentSid || isVip || freeUses > 0) {
+        fetchVideo(url);
+      } else {
+        showStatus('error', '🚫', 'Free limit reached (5/5 uses used). Subscription required!');
+        showSubscriptionModal();
+      }
     }
   }
 
