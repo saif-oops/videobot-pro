@@ -94,11 +94,11 @@ async def grant_command(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     if len(args) > 1 and args[1].isdigit():
         days = int(args[1])
 
-    user = await _resolve_target(target)
+    user = await _resolve_target(target, ctx)
     if not user:
         await update.message.reply_text(
             f"❌ User `{target}` not found.\n\n"
-            f"💡 *Tip:* You can also grant premium directly using their numeric User ID:\n"
+            f"💡 *Tip:* You can grant premium directly using their numeric User ID:\n"
             f"`/grant <user_id> [days]`\n"
             f"Example: `/grant 8993083780 30`",
             parse_mode="Markdown"
@@ -137,7 +137,7 @@ async def revoke_command(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         return
 
     target = args[0].lstrip("@")
-    user = await _resolve_target(target)
+    user = await _resolve_target(target, ctx)
 
     if not user:
         await update.message.reply_text(f"❌ User `{target}` not found.", parse_mode="Markdown")
@@ -166,7 +166,7 @@ async def addquota_command(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("❌ Amount must be a number.")
         return
 
-    user = await _resolve_target(target)
+    user = await _resolve_target(target, ctx)
     if not user:
         await update.message.reply_text(f"❌ User `{target}` not found.", parse_mode="Markdown")
         return
@@ -188,7 +188,7 @@ async def ban_command(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         return
 
     target = args[0].lstrip("@")
-    user = await _resolve_target(target)
+    user = await _resolve_target(target, ctx)
     if not user:
         await update.message.reply_text(f"❌ User `{target}` not found.", parse_mode="Markdown")
         return
@@ -210,7 +210,7 @@ async def unban_command(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         return
 
     target = args[0].lstrip("@")
-    user = await _resolve_target(target)
+    user = await _resolve_target(target, ctx)
     if not user:
         await update.message.reply_text(f"❌ User `{target}` not found.", parse_mode="Markdown")
         return
@@ -232,7 +232,7 @@ async def lookup_command(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         return
 
     target = args[0].lstrip("@")
-    user = await _resolve_target(target)
+    user = await _resolve_target(target, ctx)
     if not user:
         await update.message.reply_text(f"❌ User `{target}` not found.", parse_mode="Markdown")
         return
@@ -590,8 +590,48 @@ async def setad_command(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
 
 # ─── Helper ───────────────────────────────────────────────────
 
-async def _resolve_target(target: str) -> dict | None:
-    """Resolve username or user_id string to user dict."""
-    if target.isdigit():
-        return await get_user(int(target))
-    return await search_user(target)
+async def _resolve_target(target: str, ctx: ContextTypes.DEFAULT_TYPE | None = None) -> dict | None:
+    """Resolve username or user_id string to user dict. Auto-creates user if numeric ID is provided."""
+    clean = target.strip().lstrip("@")
+
+    # 1. If numeric User ID is provided:
+    if clean.isdigit():
+        uid = int(clean)
+        user = await get_user(uid)
+        if not user:
+            # Auto-create user record so admin can grant/manage any user ID directly!
+            full_name = f"User {uid}"
+            uname = ""
+            if ctx and ctx.bot:
+                try:
+                    chat = await ctx.bot.get_chat(uid)
+                    if chat:
+                        full_name = chat.full_name or chat.first_name or full_name
+                        uname = chat.username or ""
+                except Exception:
+                    pass
+            from database.models import get_or_create_user
+            user = await get_or_create_user(uid, uname, full_name)
+        return user
+
+    # 2. Search database by username / name
+    user = await search_user(clean)
+    if user:
+        return user
+
+    # 3. If not found in DB, try resolving via Telegram Bot get_chat
+    if ctx and ctx.bot:
+        try:
+            chat = await ctx.bot.get_chat(f"@{clean}")
+            if chat and chat.id:
+                from database.models import get_or_create_user
+                user = await get_or_create_user(
+                    chat.id,
+                    chat.username or clean,
+                    chat.full_name or chat.first_name or clean
+                )
+                return user
+        except Exception:
+            pass
+
+    return None
