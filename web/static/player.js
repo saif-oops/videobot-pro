@@ -361,7 +361,7 @@
 
     // Strict Quota Check: If 5/5 free uses have been exhausted and user is not VIP, BLOCK immediately!
     if (!isVip && freeUses <= 0 && !currentSid) {
-      showStatus('error', '🚫', 'Free limit reached (5/5 uses used). Subscription required!');
+      showStatus('error', '🚫', 'Free limit reached (5/5 videos used). You need to subscribe to continue playing videos!');
       showSubscriptionModal();
       return;
     }
@@ -408,7 +408,7 @@
       if (resp.status === 403 || data.error === 'QUOTA_EXCEEDED') {
         freeUses = 0;
         updateTierPill();
-        showStatus('error', '🚫', 'Free limit reached (5/5 uses used). Subscription required!');
+        showStatus('error', '🚫', 'Free limit reached (5/5 videos used). You need to subscribe to continue playing videos!');
         showSubscriptionModal();
         return;
       }

@@ -304,7 +304,7 @@ async def api_fetch(request: Request):
         if not allowed:
             return JSONResponse({
                 "error": "QUOTA_EXCEEDED",
-                "message": "Free limit reached (5/5 uses used). Please subscribe to Monthly VIP to continue."
+                "message": "Free limit reached (5/5 videos used). You must subscribe to continue playing videos!"
             }, status_code=403, headers=_cors_headers())
 
     from utils.downloader import detect_platform

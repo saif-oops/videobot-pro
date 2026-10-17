@@ -141,14 +141,13 @@ def video_info_message(info: dict, user: dict) -> str:
 
 def quota_exceeded_message() -> str:
     return (
-        "❌ <b>Free Limit Reached (5/5 Used)!</b>\n\n"
-        "You have used all <b>5 free video unlocks</b>.\n"
-        "To continue fetching and streaming videos, please subscribe to <b>Monthly VIP</b>.\n\n"
-        "🌟 <b>VideoBot Pro Premium — ₹99 / Month (30 Days)</b>\n"
-        "✅ <b>Unlimited</b> video downloads & plays\n"
-        "✅ <b>Zero ads</b> & zero countdown waits\n"
-        "✅ Full 4K, 1080p & 720p stream qualities\n"
-        "✅ Both TeraBox & DiskWala fully supported\n"
-        "✅ High-speed cloud streaming\n\n"
-        "👇 <b>Choose your payment method below:</b>"
+        "⚠️ <b>Free Limit Reached (5/5 Videos Used)!</b>\n\n"
+        "You have used all <b>5 free video credits</b>.\n"
+        "👉 <b>You need to take a subscription to continue playing and downloading videos!</b>\n\n"
+        "🌟 <b>Monthly VIP Pass — ₹99 (30 Days)</b>\n"
+        "⚡ <b>Unlimited</b> video streaming & downloads\n"
+        "⚡ <b>Zero ads</b> & instant high-speed access\n"
+        "⚡ TeraBox & DiskWala 100% supported\n"
+        "⚡ HD / Full HD fast cloud playback\n\n"
+        "👇 <b>Choose your payment method below to subscribe:</b>"
     )
