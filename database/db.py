@@ -57,6 +57,17 @@ async def init_db():
         except Exception:
             pass
 
+        # Cleanup: Fix any free users whose total_uses was inflated by duplicate counter calls
+        try:
+            await db.execute("""
+                UPDATE users
+                SET total_uses = MAX(5 - free_uses, 0)
+                WHERE is_premium = 0 AND total_uses > (5 - free_uses)
+            """)
+            await db.commit()
+        except Exception:
+            pass
+
         await db.execute("""
             CREATE TABLE IF NOT EXISTS downloads (
                 id        INTEGER PRIMARY KEY AUTOINCREMENT,

@@ -319,13 +319,14 @@ async def api_fetch(request: Request):
         from utils.downloader import get_video_info
         info = await get_video_info(url)
 
-        # Decrement quota upon successful fetch if free tier user
+        # Decrement quota upon successful fetch if free tier user (decrement_free_uses already increments total_uses)
         if user_id:
             from database.models import get_user, decrement_free_uses, increment_total_uses
             db_user = await get_user(user_id)
             if db_user and not db_user.get("is_premium"):
                 await decrement_free_uses(user_id)
-            await increment_total_uses(user_id)
+            elif db_user:
+                await increment_total_uses(user_id)
 
         return JSONResponse(info, headers=_cors_headers())
     except RuntimeError as e:
@@ -662,7 +663,8 @@ async def api_diskwala_meta(request: Request):
                     db_user = await get_user(user_id)
                     if db_user and not db_user.get("is_premium"):
                         await decrement_free_uses(user_id)
-                    await increment_total_uses(user_id)
+                    elif db_user:
+                        await increment_total_uses(user_id)
                 return JSONResponse(data, headers=_cors_headers())
             return JSONResponse({"error": f"Diskwala returned HTTP {resp.status_code}", "detail": resp.text}, status_code=resp.status_code, headers=_cors_headers())
     except Exception as e:

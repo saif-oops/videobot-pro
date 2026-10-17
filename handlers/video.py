@@ -113,11 +113,12 @@ async def link_handler(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         return
 
 
-    # Deduct 1 free use upon successful fetch for free tier users
+    # Deduct 1 free use upon successful fetch for free tier users (decrement_free_uses already increments total_uses)
     db_user = await get_user(tg_user.id)
     if not db_user.get("is_premium"):
         await decrement_free_uses(tg_user.id)
-    await increment_total_uses(tg_user.id)
+    else:
+        await increment_total_uses(tg_user.id)
 
     # Store in session with deducted=True
     url_hash = store_session(url, info, user_id=tg_user.id, deducted=True)
@@ -374,11 +375,13 @@ async def _handle_download(query, ctx, url: str, info: dict,
                     if query and getattr(query, "message", None):
                         await schedule_message_deletion(chat_id, query.message.message_id, delay_sec)
 
-                # Decrement quota & log
+                # Decrement quota & log (only if not already deducted upon fetch)
                 db_user = await get_user(tg_user.id)
-                if not already_deducted and not db_user["is_premium"]:
-                    await decrement_free_uses(tg_user.id)
-                await increment_total_uses(tg_user.id)
+                if not already_deducted:
+                    if not db_user["is_premium"]:
+                        await decrement_free_uses(tg_user.id)
+                    else:
+                        await increment_total_uses(tg_user.id)
                 await log_download(tg_user.id, url, title, fmt["label"], action, cached.get("file_size") or 0)
                 return
             except Exception as cache_err:
@@ -468,11 +471,13 @@ async def _handle_download(query, ctx, url: str, info: dict,
                     if query and getattr(query, "message", None):
                         await schedule_message_deletion(chat_id, query.message.message_id, delay_sec)
 
-                # Decrement quota & log
+                # Decrement quota & log (only if not already deducted upon fetch)
                 db_user = await get_user(tg_user.id)
-                if not already_deducted and not db_user["is_premium"]:
-                    await decrement_free_uses(tg_user.id)
-                await increment_total_uses(tg_user.id)
+                if not already_deducted:
+                    if not db_user["is_premium"]:
+                        await decrement_free_uses(tg_user.id)
+                    else:
+                        await increment_total_uses(tg_user.id)
                 await log_download(tg_user.id, url, title, fmt["label"], action, 0)
                 return
             except Exception as cloud_err:
@@ -529,11 +534,13 @@ async def _handle_download(query, ctx, url: str, info: dict,
                 delay_sec = auto_del_mins * 60
                 await schedule_message_deletion(chat_id, progress_msg.message_id, delay_sec)
 
-            # Decrement quota & log
+            # Decrement quota & log (only if not already deducted upon fetch)
             db_user = await get_user(tg_user.id)
-            if not already_deducted and not db_user["is_premium"]:
-                await decrement_free_uses(tg_user.id)
-            await increment_total_uses(tg_user.id)
+            if not already_deducted:
+                if not db_user["is_premium"]:
+                    await decrement_free_uses(tg_user.id)
+                else:
+                    await increment_total_uses(tg_user.id)
             await log_download(tg_user.id, url, title, fmt["label"], "web_download", file_size)
             return
 
@@ -614,11 +621,13 @@ async def _handle_download(query, ctx, url: str, info: dict,
             except Exception as se:
                 logger.warning(f"Could not schedule deletion: {se}")
 
-        # Decrement quota & log
+        # Decrement quota & log (only if not already deducted upon fetch)
         db_user = await get_user(tg_user.id)
-        if not already_deducted and not db_user["is_premium"]:
-            await decrement_free_uses(tg_user.id)
-        await increment_total_uses(tg_user.id)
+        if not already_deducted:
+            if not db_user["is_premium"]:
+                await decrement_free_uses(tg_user.id)
+            else:
+                await increment_total_uses(tg_user.id)
         await log_download(
             tg_user.id, url, title, fmt["label"], action, file_size
         )

@@ -170,12 +170,15 @@ async def status_handler(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
             expiry_info = f"\n⏳ <b>Expires:</b> <code>{db_user['premium_until']}</code>"
         tier = f"🌟 <b>Premium</b> (Monthly Plan){expiry_info}"
         quota_line = "✅ Unlimited plays & downloads"
+        total_downloads = db_user["total_uses"]
     else:
         remaining = db_user["free_uses"]
         tier = "🎫 <b>Free Tier</b>"
-        bar_filled = min(5 - remaining, 5)
-        bar = "🟥" * bar_filled + "⬜" * remaining
+        used = max(5 - remaining, 0)
+        bar_filled = min(used, 5)
+        bar = "🟥" * bar_filled + "⬜" * min(remaining, 5)
         quota_line = f"{bar} {remaining}/5 free uses left"
+        total_downloads = used
 
     text = (
         f"👤 <b>Account Status</b>\n\n"
@@ -183,7 +186,7 @@ async def status_handler(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         f"🆔 ID: <code>{user.id}</code>\n"
         f"📊 Tier: {tier}\n"
         f"🎬 {quota_line}\n"
-        f"📥 Total downloads: {db_user['total_uses']}\n"
+        f"📥 Total downloads: {total_downloads}\n"
     )
 
     if not db_user["is_premium"]:
