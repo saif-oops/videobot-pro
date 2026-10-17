@@ -58,6 +58,9 @@ def detect_platform(url: str) -> Optional[str]:
         or "mirrobox" in url_lower
         or "nephobox" in url_lower
         or "freeterabox" in url_lower
+        or "terashort" in url_lower
+        or "tshortner" in url_lower
+        or "linkiplay" in url_lower
     ):
         return "terabox"
     if any(d in url_lower for d in DISKWALA_DOMAINS) or "diskwala" in url_lower or "disk-wala" in url_lower:
@@ -277,11 +280,61 @@ def _extract_terabox_fast(url: str, pwd: str = "") -> dict:
     raise RuntimeError("Primary extractor did not return video data.")
 
 
+def normalize_terabox_url(url: str) -> str:
+    """Normalize shorteners, ad-gateways (like teraboxlinke.com), and extract standard 1024tera share URL."""
+    if not url:
+        return url
+    clean_url = url.strip()
+
+    # 1. Match /al/<id> pattern (e.g., https://teraboxlinke.com/al/10bqo0dTcy3dodnPedJNpTw)
+    m_al = re.search(r'/al/([a-zA-Z0-9_\-]+)', clean_url)
+    if m_al:
+        share_id = m_al.group(1)
+        query = clean_url.split('?', 1)[1] if '?' in clean_url else ''
+        return f"https://1024tera.com/s/{share_id}" + (f"?{query}" if query else "")
+
+    # 2. Match known shorteners with direct share id: domain.com/(s/|al/|share/)?<id>
+    shortener_domains = [
+        'teraboxlinke.com', 'teraboxlinks.com', 'terashortner.com',
+        'terashort.com', 'tshortner.in', 'linkiplay.com'
+    ]
+    for d in shortener_domains:
+        if d in clean_url.lower():
+            m_id = re.search(rf'{re.escape(d)}/(?:s/|al/|share/)?([a-zA-Z0-9_\-]+)', clean_url, re.I)
+            if m_id:
+                share_id = m_id.group(1)
+                query = clean_url.split('?', 1)[1] if '?' in clean_url else ''
+                return f"https://1024tera.com/s/{share_id}" + (f"?{query}" if query else "")
+
+    # 3. If domain is an ad-shortener/gateway, try fast HTTP fetch to find target
+    if any(k in clean_url.lower() for k in ['short', 'linke', 'play']):
+        try:
+            headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/124.0.0.0 Safari/537.36"}
+            with httpx.Client(headers=headers, timeout=6.0, follow_redirects=True) as client:
+                r = client.get(clean_url)
+                # Check redirect
+                if any(td in str(r.url).lower() for td in ['1024tera', 'terabox', 'terashare']):
+                    return str(r.url)
+                # Check target script in HTML
+                m_target = re.search(r'https?://(?:www\.)?(?:1024terabox|terabox|1024tera)\.com/s/([a-zA-Z0-9_\-]+)', r.text)
+                if m_target:
+                    query = clean_url.split('?', 1)[1] if '?' in clean_url else ''
+                    return f"https://1024tera.com/s/{m_target.group(1)}" + (f"?{query}" if query else "")
+        except Exception:
+            pass
+
+    return clean_url
+
+
 def _extract_terabox_sync(url: str) -> dict:
     """Extract TeraBox video metadata and streaming link. Tries high-speed API first, then falls back."""
+    target_url = normalize_terabox_url(url)
+
     # 1. Try high-speed API (instant, no headless browser needed)
     try:
-        return _extract_terabox_fast(url)
+        data = _extract_terabox_fast(target_url)
+        data["original_url"] = url
+        return data
     except RuntimeError as re_err:
         if "expired" in str(re_err) or "deleted" in str(re_err):
             raise
@@ -297,13 +350,13 @@ def _extract_terabox_sync(url: str) -> dict:
         )
     }
 
-    final_url = url
+    final_url = target_url
     try:
         with httpx.Client(headers=headers, follow_redirects=True, timeout=10.0) as client:
-            r = client.get(url)
+            r = client.get(target_url)
             final_url = str(r.url)
     except Exception:
-        final_url = url
+        final_url = target_url
 
     m = re.search(r'surl=([a-zA-Z0-9_\-]+)', final_url)
     if not m:

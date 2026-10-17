@@ -71,6 +71,8 @@ TERABOX_DOMAINS = [
     "dubox.com", "gibibox.com", "terashare.net", "terashare.me",
     "terabox.me", "terabox.club", "terastream.me", "teraboxurl.com",
     "terafast.com", "teraboxh5.com", "teradl.com", "terashares.com",
+    "teraboxlinke.com", "teraboxlinks.com", "terashortner.com",
+    "terashort.com", "tshortner.in", "linkiplay.com",
 ]
 
 DISKWALA_DOMAINS = [
