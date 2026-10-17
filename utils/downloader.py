@@ -49,18 +49,42 @@ def cleanup_orphaned_downloads(download_dir: str = DOWNLOAD_DIR, max_age_seconds
 def detect_platform(url: str) -> Optional[str]:
     """Returns 'terabox', 'diskwala', or None."""
     url_lower = url.lower()
-    if any(d in url_lower for d in TERABOX_DOMAINS) or "terabox" in url_lower or "terashare" in url_lower or "1024tera" in url_lower:
+    if (
+        any(d in url_lower for d in TERABOX_DOMAINS)
+        or "terabox" in url_lower
+        or "terashare" in url_lower
+        or "1024tera" in url_lower
+        or "4funbox" in url_lower
+        or "mirrobox" in url_lower
+        or "nephobox" in url_lower
+        or "freeterabox" in url_lower
+    ):
         return "terabox"
-    if any(d in url_lower for d in DISKWALA_DOMAINS) or "diskwala" in url_lower:
+    if any(d in url_lower for d in DISKWALA_DOMAINS) or "diskwala" in url_lower or "disk-wala" in url_lower:
         return "diskwala"
     return None
 
 
 def extract_url(text: str) -> Optional[str]:
-    """Extract first URL from a message."""
-    pattern = r'https?://[^\s]+'
+    """Extract first URL from a message, handling missing https:// and trailing punctuation."""
+    if not text:
+        return None
+    # 1. Match full http/https URLs
+    pattern = r'https?://[^\s<>"]+'
     match = re.search(pattern, text)
-    return match.group(0) if match else None
+    if match:
+        url = match.group(0)
+        return re.sub(r'[),.;!]+$', '', url).strip()
+
+    # 2. Match raw domains if user pasted without http(s)://
+    for domain in TERABOX_DOMAINS + DISKWALA_DOMAINS:
+        m = re.search(rf'(?:www\.)?{re.escape(domain)}/[^\s<>"]+', text, re.IGNORECASE)
+        if m:
+            raw = m.group(0)
+            clean = re.sub(r'[),.;!]+$', '', raw).strip()
+            return f"https://{clean}"
+
+    return None
 
 
 # ─── yt-dlp helpers ──────────────────────────────────────────
@@ -156,7 +180,7 @@ def _get_chrome_path() -> Optional[str]:
     return None
 
 
-def _extract_terabox_fast(url: str) -> dict:
+def _extract_terabox_fast(url: str, pwd: str = "") -> dict:
     """High-speed TeraBox extractor using direct signed stream API. Resolves in < 1 second."""
     import hashlib
     t = int(time.time())
@@ -173,8 +197,19 @@ def _extract_terabox_fast(url: str) -> dict:
         "Referer": "https://playterabox.com/tools/terabox-online-player",
         "Origin": "https://playterabox.com",
     }
-    with httpx.Client(headers=headers, timeout=12.0) as client:
-        r = client.post(api_url, json={"url": url})
+
+    # Extract pwd from url if not provided
+    if not pwd:
+        m_pwd = re.search(r'[?&]pwd=([a-zA-Z0-9]+)', url, re.I)
+        if m_pwd:
+            pwd = m_pwd.group(1)
+
+    payload = {"url": url}
+    if pwd:
+        payload["pwd"] = pwd
+
+    with httpx.Client(headers=headers, timeout=25.0) as client:
+        r = client.post(api_url, json=payload)
         if r.status_code == 200:
             data = r.json()
             if data.get("errno") == -4 or "deleted" in str(data).lower():

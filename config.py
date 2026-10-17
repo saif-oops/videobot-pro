@@ -68,11 +68,13 @@ TERABOX_DOMAINS = [
     "teraboxlink.com", "terasharelink.com", "terasharefile.com",
     "momerybox.com", "tibibox.com", "terabox.fun",
     "teraboxshare.com", "teraboxdrive.com", "terafiles.com",
-    "dubox.com", "gibibox.com",
+    "dubox.com", "gibibox.com", "terashare.net", "terashare.me",
+    "terabox.me", "terabox.club", "terastream.me", "teraboxurl.com",
+    "terafast.com", "teraboxh5.com", "teradl.com", "terashares.com",
 ]
 
 DISKWALA_DOMAINS = [
-    "diskwala.com", "disk-wala.com",
+    "diskwala.com", "disk-wala.com", "diskwala.app",
 ]
 
 BOT_NAME = "VideoBot Pro"
@@ -82,4 +84,6 @@ ALLOWED_STREAM_DOMAINS = set(TERABOX_DOMAINS) | {
     "teraboxdl.site",
     "playterabox.com",
     "baidupcs.com",
+    "teraboxcontent.com",
+    "baidu.com",
 }
