@@ -21,6 +21,7 @@
   const videoTitle       = document.getElementById('videoTitle');
   const videoMeta        = document.getElementById('videoMeta');
   const downloadBtn      = document.getElementById('downloadBtn');
+  const newLinkBtn       = document.getElementById('newLinkBtn');
   const vdiskBtn         = document.getElementById('vdiskBtn');
   const pipBtn           = document.getElementById('pipBtn');
   const fullscreenBtn    = document.getElementById('fullscreenBtn');
@@ -32,6 +33,7 @@
   const btnDiskwalaVPlayer = document.getElementById('btnDiskwalaVPlayer');
   const btnDiskwalaApp   = document.getElementById('btnDiskwalaApp');
   const btnDiskwalaCopy  = document.getElementById('btnDiskwalaCopy');
+  const btnDiskwalaNewLink = document.getElementById('btnDiskwalaNewLink');
 
   // Ad Modal References
   const adOverlay        = document.getElementById('adOverlay');
@@ -797,25 +799,87 @@
     });
   });
 
-  // ─── PiP & Fullscreen ──────────────────────────────────────
-  pipBtn.addEventListener('click', async () => {
-    try {
-      if (document.pictureInPictureElement) {
-        await document.exitPictureInPicture();
-      } else if (videoPlayer.requestPictureInPicture) {
-        await videoPlayer.requestPictureInPicture();
-      }
-    } catch {}
-  });
-
-  fullscreenBtn.addEventListener('click', () => {
-    const wrapper = document.getElementById('videoWrapper');
-    if (document.fullscreenElement) {
-      document.exitFullscreen();
-    } else if (wrapper.requestFullscreen) {
-      wrapper.requestFullscreen();
+  // ─── Reset to Dashboard / New Link ─────────────────────────
+  function resetToDashboard() {
+    // 1. Pause and reset video player
+    if (videoPlayer) {
+      videoPlayer.pause();
+      videoPlayer.removeAttribute('src');
+      videoPlayer.load();
     }
-  });
+    if (hlsInstance) {
+      hlsInstance.destroy();
+      hlsInstance = null;
+    }
+
+    // 2. Hide player card
+    if (playerCard) {
+      playerCard.classList.remove('active');
+    }
+    const dwBanner = document.getElementById('dwBannerPreview');
+    if (dwBanner) {
+      dwBanner.style.display = 'none';
+    }
+
+    // 3. Clear current video data
+    currentVideoInfo = null;
+
+    // 4. Clean URL query parameters from browser address bar
+    try {
+      const cleanUrl = window.location.origin + window.location.pathname;
+      window.history.replaceState({}, document.title, cleanUrl);
+    } catch (e) {}
+
+    // 5. Clear input field, hide status, and focus input
+    if (urlInput) {
+      urlInput.value = '';
+    }
+    hideStatus();
+
+    // 6. Scroll smoothly to top dashboard
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+
+    setTimeout(() => {
+      if (urlInput) urlInput.focus();
+    }, 150);
+
+    // 7. Telegram Haptic feedback
+    if (tg && tg.HapticFeedback) {
+      tg.HapticFeedback.impactOccurred('light');
+    }
+  }
+
+  if (newLinkBtn) {
+    newLinkBtn.addEventListener('click', resetToDashboard);
+  }
+
+  if (btnDiskwalaNewLink) {
+    btnDiskwalaNewLink.addEventListener('click', resetToDashboard);
+  }
+
+  // ─── PiP & Fullscreen (Safe Guards) ────────────────────────
+  if (pipBtn) {
+    pipBtn.addEventListener('click', async () => {
+      try {
+        if (document.pictureInPictureElement) {
+          await document.exitPictureInPicture();
+        } else if (videoPlayer.requestPictureInPicture) {
+          await videoPlayer.requestPictureInPicture();
+        }
+      } catch {}
+    });
+  }
+
+  if (fullscreenBtn) {
+    fullscreenBtn.addEventListener('click', () => {
+      const wrapper = document.getElementById('videoWrapper');
+      if (document.fullscreenElement) {
+        document.exitFullscreen();
+      } else if (wrapper.requestFullscreen) {
+        wrapper.requestFullscreen();
+      }
+    });
+  }
 
   // ─── Auto-Fetch from URL Query Param ───────────────────────
   async function init() {
