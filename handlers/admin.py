@@ -96,7 +96,13 @@ async def grant_command(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
 
     user = await _resolve_target(target)
     if not user:
-        await update.message.reply_text(f"❌ User `{target}` not found.", parse_mode="Markdown")
+        await update.message.reply_text(
+            f"❌ User `{target}` not found.\n\n"
+            f"💡 *Tip:* You can also grant premium directly using their numeric User ID:\n"
+            f"`/grant <user_id> [days]`\n"
+            f"Example: `/grant 8993083780 30`",
+            parse_mode="Markdown"
+        )
         return
 
     await grant_premium(user["user_id"], days=days)

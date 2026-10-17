@@ -17,6 +17,13 @@ async def get_or_create_user(user_id: int, username: str, full_name: str, referr
             INSERT OR IGNORE INTO users (user_id, username, full_name, referred_by)
             VALUES (?, ?, ?, ?)
         """, (user_id, username, full_name, referred_by))
+        if username or full_name:
+            await db.execute("""
+                UPDATE users
+                SET username = COALESCE(NULLIF(?, ''), username),
+                    full_name = COALESCE(NULLIF(?, ''), full_name)
+                WHERE user_id = ?
+            """, (username, full_name, user_id))
         await db.commit()
 
         cursor = await db.execute(
@@ -304,15 +311,47 @@ async def get_all_user_ids() -> list[int]:
         return [r[0] for r in rows]
 
 
-async def search_user(username: str) -> Optional[dict]:
-    """Search by username (without @)."""
+async def search_user(query: str) -> Optional[dict]:
+    """Search by username, user_id, or full name (case-insensitive & fuzzy)."""
+    if not query:
+        return None
+    clean = query.strip().lstrip("@")
     async with aiosqlite.connect(DB_PATH) as db:
         db.row_factory = aiosqlite.Row
-        cursor = await db.execute(
-            "SELECT * FROM users WHERE username = ?", (username.lstrip("@"),)
+
+        # 1. Exact user_id match
+        if clean.isdigit():
+            cur = await db.execute("SELECT * FROM users WHERE user_id = ?", (int(clean),))
+            row = await cur.fetchone()
+            if row:
+                return dict(row)
+
+        # 2. Case-insensitive exact username match
+        cur = await db.execute(
+            "SELECT * FROM users WHERE LOWER(username) = LOWER(?)", (clean,)
         )
-        row = await cursor.fetchone()
-        return dict(row) if row else None
+        row = await cur.fetchone()
+        if row:
+            return dict(row)
+
+        # 3. Partial / LIKE username match
+        cur = await db.execute(
+            "SELECT * FROM users WHERE LOWER(username) LIKE LOWER(?)", (f"%{clean}%",)
+        )
+        row = await cur.fetchone()
+        if row:
+            return dict(row)
+
+        # 4. Full name match (exact or partial)
+        cur = await db.execute(
+            "SELECT * FROM users WHERE LOWER(full_name) = LOWER(?) OR LOWER(full_name) LIKE LOWER(?)",
+            (clean, f"%{clean}%")
+        )
+        row = await cur.fetchone()
+        if row:
+            return dict(row)
+
+        return None
 
 
 # ══════════════════════════════════════════════════════════
