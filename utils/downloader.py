@@ -69,25 +69,39 @@ def detect_platform(url: str) -> Optional[str]:
 
 
 def extract_url(text: str) -> Optional[str]:
-    """Extract first URL from a message, handling missing https:// and trailing punctuation."""
+    """Extract first URL from a message, handling missing https://, trailing punctuation, and extraction codes."""
     if not text:
         return None
+    url = None
+
     # 1. Match full http/https URLs
     pattern = r'https?://[^\s<>"]+'
     match = re.search(pattern, text)
     if match:
-        url = match.group(0)
-        return re.sub(r'[),.;!]+$', '', url).strip()
+        raw_url = match.group(0)
+        url = re.sub(r'[),.;!]+$', '', raw_url).strip()
 
     # 2. Match raw domains if user pasted without http(s)://
-    for domain in TERABOX_DOMAINS + DISKWALA_DOMAINS:
-        m = re.search(rf'(?:www\.)?{re.escape(domain)}/[^\s<>"]+', text, re.IGNORECASE)
-        if m:
-            raw = m.group(0)
-            clean = re.sub(r'[),.;!]+$', '', raw).strip()
-            return f"https://{clean}"
+    if not url:
+        for domain in TERABOX_DOMAINS + DISKWALA_DOMAINS:
+            m = re.search(rf'(?:www\.)?{re.escape(domain)}/[^\s<>"]+', text, re.IGNORECASE)
+            if m:
+                raw = m.group(0)
+                clean = re.sub(r'[),.;!]+$', '', raw).strip()
+                url = f"https://{clean}"
+                break
 
-    return None
+    if not url:
+        return None
+
+    # 3. Detect extraction code or password in text if not already present in URL
+    if "pwd=" not in url.lower():
+        m_pwd = re.search(r'(?:extraction\s*code|code|pwd|password|pass)[:\s]+([a-zA-Z0-9]{4,8})', text, re.I)
+        if m_pwd:
+            sep = "&" if "?" in url else "?"
+            url = f"{url}{sep}pwd={m_pwd.group(1)}"
+
+    return url
 
 
 # ─── yt-dlp helpers ──────────────────────────────────────────
@@ -286,7 +300,18 @@ def normalize_terabox_url(url: str) -> str:
         return url
     clean_url = url.strip()
 
-    # 1. Match /al/<id> pattern (e.g., https://teraboxlinke.com/al/10bqo0dTcy3dodnPedJNpTw)
+    # 1. Match surl= parameter (e.g., wap/share/filelist?surl=..., sharing/link?surl=...)
+    m_surl = re.search(r'[?&]surl=([a-zA-Z0-9_\-]+)', clean_url)
+    if m_surl:
+        surl_code = m_surl.group(1)
+        query_params = []
+        m_pwd = re.search(r'[?&]pwd=([a-zA-Z0-9]+)', clean_url, re.I)
+        if m_pwd:
+            query_params.append('pwd=' + m_pwd.group(1))
+        q_str = ('?' + '&'.join(query_params)) if query_params else ''
+        return f"https://1024tera.com/s/{surl_code}{q_str}"
+
+    # 2. Match /al/<id> pattern (e.g., https://teraboxlinke.com/al/10bqo0dTcy3dodnPedJNpTw)
     m_al = re.search(r'/al/([a-zA-Z0-9_\-]+)', clean_url)
     if m_al:
         share_id = m_al.group(1)
