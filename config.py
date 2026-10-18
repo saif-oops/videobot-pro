@@ -11,11 +11,11 @@ ADMIN_IDS = [int(x) for x in os.getenv("ADMIN_IDS", "").split(",") if x.strip()]
 RAZORPAY_KEY_ID = os.getenv("RAZORPAY_KEY_ID", "")
 RAZORPAY_KEY_SECRET = os.getenv("RAZORPAY_KEY_SECRET", "")
 RAZORPAY_WEBHOOK_SECRET = os.getenv("RAZORPAY_WEBHOOK_SECRET", "")
-RAZORPAY_PAYMENT_URL = os.getenv("RAZORPAY_PAYMENT_URL", "https://rzp.io/rzp/1tGAGsc").strip()
+RAZORPAY_PAYMENT_URL = os.getenv("RAZORPAY_PAYMENT_URL", "").strip()
 
 # ─── UPI & Direct QR Settings ───────────────────────────────
-UPI_ID = os.getenv("UPI_ID", "videobot@jio").strip()
-UPI_NAME = os.getenv("UPI_NAME", "Saif Ansari").strip()
+UPI_ID = os.getenv("UPI_ID", "").strip()
+UPI_NAME = os.getenv("UPI_NAME", "VideoBot Admin").strip()
 UPI_QR_IMAGE = os.getenv("UPI_QR_IMAGE", "web/static/upi_qr.jpg").strip()
 
 # ─── App Settings ────────────────────────────────────────────

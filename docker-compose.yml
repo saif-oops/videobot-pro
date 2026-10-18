@@ -1,0 +1,16 @@
+version: '3.8'
+
+services:
+  videobot:
+    build: .
+    container_name: videobot-pro
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    env_file:
+      - .env
+    volumes:
+      - videobot_data:/app/data
+
+volumes:
+  videobot_data:

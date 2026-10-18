@@ -1,26 +1,75 @@
-# Environment
+# ─── Environment & Secrets ──────────────────────────────────────
 .env
+.env.*
+!.env.example
+*.pem
+*.key
+*.cert
 
-# Downloads folder (temp files)
-downloads/
-
-# Database
+# ─── Database & Backups ────────────────────────────────────────
 *.db
+*.db-journal
+*.db-wal
+*.db-shm
+*.sqlite
+*.sqlite3
+videobot.db
+backup_*.db
 
-# Python cache
+# ─── Downloads & Temporary Media ──────────────────────────────
+downloads/
+*.mp4
+*.mkv
+*.webm
+*.part
+*.ytdl
+
+# ─── Python Cache & Build Artifacts ───────────────────────────
 __pycache__/
-*.pyc
-*.pyo
-*.pyd
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
 
-# Virtual environments
+# ─── Virtual Environments ─────────────────────────────────────
 venv/
 env/
+ENV/
 .venv/
 
-# IDE
+# ─── Testing & Linters ─────────────────────────────────────────
+.pytest_cache/
+.coverage
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+
+# ─── IDE & OS Files ───────────────────────────────────────────
 .vscode/
 .idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+desktop.ini
 
-# Scratch & debug scripts
+# ─── Scratch, Debug & Reverse-Engineering Dumps ───────────────
 scratch/
+scratch_*.*
+diskwala_dom.html
+diskwala_dump.html
