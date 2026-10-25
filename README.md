@@ -1,7 +1,7 @@
 # 🎬 VideoBot Pro
 
 <p align="center">
-  <img src="bot_icon.jpg" alt="VideoBot Pro Banner" width="220" style="border-radius: 16px;">
+  <img src="assets/bot_icon.jpg" alt="VideoBot Pro Banner" width="220" style="border-radius: 16px;">
 </p>
 
 <p align="center">
@@ -65,6 +65,8 @@ videobot/
 ├── Dockerfile              # Production multi-stage Docker container
 ├── docker-compose.yml      # Container composition with persistent volumes
 ├── .env.example            # Environment configuration template
+├── assets/
+│   └── bot_icon.jpg        # Bot avatar & branding banner
 ├── database/
 │   ├── db.py               # SQLite schema initialization and migrations
 │   └── models.py           # Async ORM queries, user sessions, and settings

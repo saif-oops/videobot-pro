@@ -131,7 +131,9 @@ async def start_handler(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     ])
     start_keyboard = InlineKeyboardMarkup(start_kb)
 
-    icon_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "bot_icon.jpg")
+    icon_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "assets", "bot_icon.jpg")
+    if not os.path.exists(icon_path):
+        icon_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "bot_icon.jpg")
     if os.path.exists(icon_path):
         try:
             with open(icon_path, "rb") as photo_file:
