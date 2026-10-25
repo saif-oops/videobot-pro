@@ -9,6 +9,14 @@
 </p>
 
 <p align="center">
+  <a href="https://t.me/Tera_Player_Bot"><img src="https://img.shields.io/badge/Telegram_Bot-@Tera__Player__Bot-2BA6E1?style=for-the-badge&logo=telegram&logoColor=white" alt="Telegram Bot"></a>
+  <a href="https://videobot-pro.up.railway.app/player"><img src="https://img.shields.io/badge/Web_Mini_App-Live_Player-00C7B7?style=for-the-badge&logo=googlechrome&logoColor=white" alt="Live Web App"></a>
+  <a href="https://videobot-pro.up.railway.app/health"><img src="https://img.shields.io/badge/Status-Online_200_OK-2ea44f?style=for-the-badge" alt="Uptime Status"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-yellow?style=for-the-badge" alt="MIT License"></a>
+</p>
+
+<p align="center">
+  <a href="#-live-urls--demo">Live URLs</a> •
   <a href="#-features">Features</a> •
   <a href="#-quick-start">Quick Start</a> •
   <a href="#-configuration">Configuration</a> •
@@ -16,6 +24,17 @@
   <a href="#-admin-commands">Admin Guide</a> •
   <a href="#-architecture">Architecture</a>
 </p>
+
+---
+
+## 🔗 Live URLs & Demo
+
+| Service | Live Link | Description |
+|---|---|---|
+| 🤖 **Telegram Bot** | [@Tera_Player_Bot](https://t.me/Tera_Player_Bot) | Production Telegram bot for instant link processing, streaming & downloads |
+| 🌐 **Web Mini App** | [videobot-pro.up.railway.app/player](https://videobot-pro.up.railway.app/player) | Responsive web video player with HLS streaming & direct MP4 downloads |
+| 📢 **Updates Channel** | [@TeraBox_Viral_1](https://t.me/TeraBox_Viral_1) | Official community channel for news and updates |
+| 🩺 **Health Check** | [videobot-pro.up.railway.app/health](https://videobot-pro.up.railway.app/health) | Live server health monitoring endpoint |
 
 ---
 
